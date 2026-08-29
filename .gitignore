@@ -1,0 +1,14 @@
+node_modules/
+package-lock.json
+
+# Screenshots aus dem Sichtprüfungslauf
+test/*.png
+test/page.html
+
+# Zwischenstände des Builds; index.html im Wurzelverzeichnis ist das Ergebnis
+dist/
+
+# Nie ins Repo: der Alpha-Vantage-Schlüssel liegt in kurslot.app_secrets
+.env
+.env.*
+*.key

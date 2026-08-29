@@ -1,0 +1,1108 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Aktien, ETFs und Krypto einordnen: echter Kursverlauf, Guidance gegen Ist, Schwankungstreiber und historische Erholungsmuster.">
+<meta name="color-scheme" content="light dark">
+<style>html{color-scheme:light dark}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+
+</head>
+<body>
+<title>Kurslot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* ============================== TOKENS ============================== */
+:root{
+  --ground:#f5f5f2; --surface:#ffffff; --sunken:#eceee7; --raised:#fafaf7;
+  --ink:#191c18; --ink-2:#5a6058; --ink-3:#8b9187;
+  --rule:#dcded6; --rule-2:#e9eae3;
+  --accent:#2f55c4; --accent-ink:#1e3d99; --accent-wash:#e6ebfa;
+  --good:#1e7f4a; --warn:#b87a00; --bad:#a62e1c;
+  --good-wash:#e2f0e8; --warn-wash:#f6ecd8; --bad-wash:#f7e5e1;
+  --ghost:#b9beb2; --ghost-2:#cfd3c8;
+  --shadow:0 1px 2px rgba(25,28,24,.05), 0 8px 24px -16px rgba(25,28,24,.25);
+  --focus:#2f55c4;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#101210; --surface:#181b17; --sunken:#131610; --raised:#1d211c;
+    --ink:#e9ebe4; --ink-2:#969c90; --ink-3:#6d7369;
+    --rule:#2a2e27; --rule-2:#232720;
+    --accent:#6e88e4; --accent-ink:#a2b3f0; --accent-wash:#1c2338;
+    --good:#3e9c60; --warn:#c0a016; --bad:#d4503c;
+    --good-wash:#16261c; --warn-wash:#282210; --bad-wash:#2c1815;
+    --ghost:#4d5349; --ghost-2:#3a3f36;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+    --focus:#8ea4ee;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101210; --surface:#181b17; --sunken:#131610; --raised:#1d211c;
+  --ink:#e9ebe4; --ink-2:#969c90; --ink-3:#6d7369;
+  --rule:#2a2e27; --rule-2:#232720;
+  --accent:#6e88e4; --accent-ink:#a2b3f0; --accent-wash:#1c2338;
+  --good:#3e9c60; --warn:#c0a016; --bad:#d4503c;
+  --good-wash:#16261c; --warn-wash:#282210; --bad-wash:#2c1815;
+  --ghost:#4d5349; --ghost-2:#3a3f36;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  --focus:#8ea4ee;
+  color-scheme:dark;
+}
+
+/* ============================== BASE ============================== */
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:"Bricolage Grotesque","Instrument Sans",system-ui,sans-serif;font-weight:700;text-wrap:balance;margin:0;letter-spacing:-.015em}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+button{font:inherit;color:inherit;cursor:pointer}
+[hidden]{display:none!important}
+
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px 72px}
+
+/* ============================== COMMAND BAR ============================== */
+.top{
+  position:sticky;top:0;z-index:40;background:var(--ground);
+  border-bottom:1px solid var(--rule);
+}
+.top-in{max-width:1180px;margin:0 auto;padding:14px 20px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:9px;flex:0 0 auto}
+.brand .name{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:19px;letter-spacing:-.02em}
+.brand .sub{font-size:11px;color:var(--ink-3);letter-spacing:.09em;text-transform:uppercase;font-weight:500}
+
+.searchbox{flex:1 1 320px;min-width:240px;position:relative}
+.searchbox input{
+  width:100%;padding:11px 14px 11px 38px;border-radius:9px;
+  border:1px solid var(--rule);background:var(--surface);color:var(--ink);
+  font:500 15px/1.2 "IBM Plex Mono",monospace;letter-spacing:.01em;
+}
+.searchbox input::placeholder{color:var(--ink-3);font-weight:400;letter-spacing:0;font-family:"Instrument Sans",sans-serif}
+.searchbox input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-wash)}
+.searchbox .glyph{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--ink-3);pointer-events:none;display:flex}
+.sugg{
+  position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;
+  background:var(--surface);border:1px solid var(--rule);border-radius:10px;
+  box-shadow:var(--shadow);overflow:hidden;max-height:320px;overflow-y:auto;
+}
+.sugg button{
+  display:flex;width:100%;gap:12px;align-items:baseline;padding:10px 14px;
+  background:none;border:0;border-bottom:1px solid var(--rule-2);text-align:left;
+}
+.sugg button:last-child{border-bottom:0}
+.sugg button:hover,.sugg button[aria-selected="true"]{background:var(--sunken)}
+.sugg .sym{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:13px;flex:0 0 auto;min-width:76px}
+.sugg .nm{font-size:13px;color:var(--ink-2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sugg .rg{font-size:11px;color:var(--ink-3);flex:0 0 auto}
+
+.themebtn{
+  flex:0 0 auto;width:36px;height:36px;display:grid;place-items:center;
+  border:1px solid var(--rule);border-radius:9px;background:var(--surface);color:var(--ink-2);
+}
+.themebtn:hover{color:var(--ink);border-color:var(--ink-3)}
+
+/* ============================== HEADSTRIP ============================== */
+.headstrip{display:flex;gap:28px;align-items:flex-end;flex-wrap:wrap;padding:30px 0 22px}
+.ident{flex:1 1 300px;min-width:0}
+.chips{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:9px}
+.chip{
+  font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:600;
+  padding:3px 8px;border-radius:5px;background:var(--sunken);color:var(--ink-2);border:1px solid var(--rule-2);
+}
+.chip.k{background:var(--accent-wash);color:var(--accent-ink);border-color:transparent}
+.ident h1{font-size:clamp(26px,4vw,38px);line-height:1.1}
+.ident .meta{font-size:13px;color:var(--ink-2);margin-top:6px}
+.quote{flex:0 0 auto;text-align:right}
+.quote .px{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-size:clamp(30px,5vw,44px);font-weight:600;line-height:1;letter-spacing:-.02em}
+.quote .cur{font-size:.5em;color:var(--ink-2);font-weight:400;margin-left:6px}
+.quote .delta{margin-top:8px;display:flex;gap:14px;justify-content:flex-end;font-family:"IBM Plex Mono",monospace;font-size:13px;font-variant-numeric:tabular-nums}
+.up{color:var(--good)} .down{color:var(--bad)} .flat{color:var(--ink-2)}
+.quote .delta span b{font-weight:600}
+.quote .delta em{font-style:normal;color:var(--ink-3);font-family:"Instrument Sans",sans-serif;margin-right:5px}
+
+/* ============================== CARDS ============================== */
+.card{
+  background:var(--surface);border:1px solid var(--rule);border-radius:13px;
+  padding:20px 22px 22px;box-shadow:var(--shadow);
+}
+.card + .card, .grid, .card-stack > * + *{margin-top:0}
+.stack{display:flex;flex-direction:column;gap:18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+
+.card-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:4px;flex-wrap:wrap}
+.card-head h2{font-size:16px;letter-spacing:-.01em}
+.eyebrow{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);font-weight:600;font-family:"Instrument Sans",sans-serif}
+.card-note{font-size:13px;color:var(--ink-2);margin:6px 0 16px;max-width:62ch}
+
+/* segmented control */
+.seg{display:inline-flex;background:var(--sunken);border-radius:8px;padding:3px;gap:2px;border:1px solid var(--rule-2)}
+.seg button{
+  border:0;background:none;padding:5px 11px;border-radius:6px;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;color:var(--ink-2);
+}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.seg button:hover{color:var(--ink)}
+
+/* ============================== CHART ============================== */
+.chartbox{position:relative;width:100%}
+.chartbox svg{display:block;width:100%;height:auto;overflow:visible}
+.tip{
+  position:absolute;pointer-events:none;z-index:20;
+  background:var(--surface);border:1px solid var(--rule);border-radius:8px;
+  padding:8px 11px;box-shadow:var(--shadow);font-size:12.5px;min-width:120px;
+  transition:opacity .1s;
+}
+.tip .d{color:var(--ink-3);font-size:11px;margin-bottom:3px}
+.tip .v{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:15px;font-variant-numeric:tabular-nums}
+.tip .x{color:var(--ink-2);font-size:11.5px;margin-top:3px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--ink-2)}
+.legend i{display:inline-block;width:16px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.legend .sw-band{height:11px;width:14px;border-radius:3px}
+
+/* ============================== AMPEL ROWS ============================== */
+.rows{display:flex;flex-direction:column;gap:0;margin-top:6px}
+.row{
+  display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;
+  padding:11px 0;border-bottom:1px solid var(--rule-2);
+}
+.row:last-child{border-bottom:0}
+.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.dot.g{background:var(--good)} .dot.y{background:var(--warn)} .dot.r{background:var(--bad)} .dot.n{background:var(--ghost)}
+.row .lab{min-width:0}
+.row .lab b{display:block;font-weight:600;font-size:13.5px}
+.row .lab span{display:block;font-size:12px;color:var(--ink-2)}
+.row .num{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-size:13px;text-align:right;white-space:nowrap}
+.tag{
+  display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+  padding:2px 7px;border-radius:5px;letter-spacing:.02em;
+}
+.tag.g{background:var(--good-wash);color:var(--good)}
+.tag.y{background:var(--warn-wash);color:var(--warn)}
+.tag.r{background:var(--bad-wash);color:var(--bad)}
+.tag.n{background:var(--sunken);color:var(--ink-2)}
+
+/* bullet bar: ist vs erwartet */
+.bullet{position:relative;height:22px}
+.bullet .track{position:absolute;left:0;right:0;top:9px;height:4px;background:var(--sunken);border-radius:2px}
+.bullet .fill{position:absolute;top:9px;height:4px;border-radius:2px}
+.bullet .mark{position:absolute;top:4px;width:2px;height:14px;background:var(--ink);border-radius:1px}
+
+/* ============================== DRIVER LIST ============================== */
+.drivers{display:flex;flex-direction:column;gap:2px;margin-top:8px}
+.driver{
+  display:grid;grid-template-columns:3px 1fr auto;gap:13px;align-items:start;
+  padding:12px 0;border-bottom:1px solid var(--rule-2);
+}
+.driver:last-child{border-bottom:0}
+.driver .stripe{width:3px;border-radius:2px;align-self:stretch;min-height:34px}
+.driver h3{font-size:13.5px;font-weight:600;font-family:"Instrument Sans",sans-serif;letter-spacing:0}
+.driver p{margin:3px 0 0;font-size:12.5px;color:var(--ink-2);line-height:1.5}
+.driver .when{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-3);white-space:nowrap;padding-top:2px}
+
+/* ============================== EPISODES ============================== */
+.eps{width:100%;min-width:520px;border-collapse:collapse;font-size:13px;margin-top:8px}
+.eps th{
+  text-align:left;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);font-weight:600;padding:0 10px 8px 0;border-bottom:1px solid var(--rule);
+}
+.eps th.r,.eps td.r{text-align:right;padding-right:0}
+.eps td{padding:10px 10px 10px 0;border-bottom:1px solid var(--rule-2);vertical-align:middle}
+.eps tr:last-child td{border-bottom:0}
+.eps tr.now td{background:var(--accent-wash)}
+.eps tr.now td:first-child{border-radius:6px 0 0 6px;box-shadow:inset 2px 0 0 var(--accent)}
+.eps tr.now td:last-child{border-radius:0 6px 6px 0}
+.eps .mono{font-size:12.5px}
+.eps .ev{font-weight:600;font-size:13px}
+.eps .ev small{display:block;font-weight:400;font-size:11.5px;color:var(--ink-2);margin-top:1px;line-height:1.4}
+
+.stale{
+  display:flex;gap:9px;align-items:baseline;margin:22px 0 -6px;padding:10px 14px;
+  border-radius:9px;background:var(--warn-wash);color:var(--warn);
+  font-size:12.5px;font-weight:500;border:1px solid transparent;
+}
+
+/* ============================== STATES ============================== */
+.pane{
+  border:1px dashed var(--rule);border-radius:13px;background:var(--raised);
+  padding:34px 26px;text-align:center;color:var(--ink-2);
+}
+.pane h2{font-size:18px;color:var(--ink);margin-bottom:8px}
+.pane p{margin:0 auto;max-width:56ch;font-size:14px}
+.pane .ex{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+.pane .ex button{
+  font-family:"IBM Plex Mono",monospace;font-size:12.5px;padding:7px 12px;
+  border:1px solid var(--rule);border-radius:8px;background:var(--surface);color:var(--ink-2);
+}
+.pane .ex button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-wash)}
+.pane.err{border-style:solid;border-color:var(--bad);background:var(--bad-wash)}
+.pane.err h2{color:var(--bad)}
+
+.skel{background:linear-gradient(90deg,var(--sunken) 25%,var(--rule-2) 50%,var(--sunken) 75%);background-size:400% 100%;animation:sh 1.4s ease-in-out infinite;border-radius:6px}
+@keyframes sh{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}*{transition:none!important}}
+
+.spin{width:15px;height:15px;border:2px solid var(--rule);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;display:inline-block;vertical-align:-3px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.loading-line{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-2);padding:6px 0}
+
+@media (max-width:560px){
+  .brand{flex:1 1 auto}
+  .searchbox{order:3;flex:1 1 100%}
+  .quote{text-align:left;flex:1 1 100%}
+  .quote .delta{justify-content:flex-start}
+  .headstrip{gap:16px;padding:22px 0 18px}
+  .card{padding:16px 15px 18px}
+  .wrap{padding:0 14px 56px}
+  .top-in{padding:12px 14px;gap:12px}
+  .foot{flex-direction:column;gap:12px}
+  .foot p[style]{text-align:left!important}
+}
+.foot{margin-top:34px;padding-top:20px;border-top:1px solid var(--rule);font-size:12px;color:var(--ink-2);display:flex;gap:20px;justify-content:space-between;flex-wrap:wrap;line-height:1.6}
+.foot p{margin:0;max-width:70ch}
+.foot b{color:var(--ink-2);font-weight:600}
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <span class="name">Kurslot</span>
+      <span class="sub">Marktlage einordnen</span>
+    </div>
+    <div class="searchbox">
+      <span class="glyph" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="7" cy="7" r="4.7"/><path d="M10.5 10.5 14 14" stroke-linecap="round"/></svg>
+      </span>
+      <input id="q" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Aktie, ETF oder Krypto eingeben – z. B. BMW, VWCE, Bitcoin"
+             aria-label="Symbol suchen" aria-expanded="false" role="combobox" aria-controls="sugg">
+      <div class="sugg" id="sugg" role="listbox" hidden></div>
+    </div>
+    <button class="themebtn" id="theme" aria-label="Hell/Dunkel wechseln" title="Hell/Dunkel wechseln"></button>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+
+<script>
+/* ==========================================================================
+   Kurslot — Analyse-Layer
+   Alles Quantitative wird aus der echten Kursreihe gerechnet, nicht geschätzt.
+   ========================================================================== */
+"use strict";
+
+/* ------------------------------- Format --------------------------------- */
+const nf = (d = 2) => new Intl.NumberFormat("de-DE", { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmt = (v, d = 2) => (v == null || !isFinite(v)) ? "–" : nf(d).format(v);
+const pct = (v, d = 1) => (v == null || !isFinite(v)) ? "–" : (v > 0 ? "+" : "") + nf(d).format(v) + " %";
+const dDE = (s) => { const t = new Date(s); return isNaN(t) ? String(s) : t.toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" }); };
+const mDE = (s) => { const t = new Date(s); return isNaN(t) ? String(s) : t.toLocaleDateString("de-DE", { month: "short", year: "numeric" }); };
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const dirClass = (v) => v == null ? "flat" : v > 0.05 ? "up" : v < -0.05 ? "down" : "flat";
+const monthsBetween = (a, b) => (new Date(b) - new Date(a)) / (1000 * 60 * 60 * 24 * 30.44);
+
+function fmtDuration(months) {
+  if (months == null || !isFinite(months)) return "–";
+  if (months < 1.5) return Math.max(1, Math.round(months * 4.35)) + " Wo.";
+  if (months < 22) return Math.round(months) + " Mon.";
+  const y = months / 12;
+  return nf(y % 1 < 0.1 ? 0 : 1).format(y) + " J.";
+}
+
+/* --------------------------- Episoden-Erkennung --------------------------
+   Ein "Schock" ist ein Rückgang vom laufenden Allzeithoch um mindestens
+   THRESHOLD. Die Episode endet, wenn das alte Hoch wieder erreicht wird.
+   Rein mechanisch aus der Kursreihe — keine Interpretation.
+-------------------------------------------------------------------------- */
+const THRESHOLD = 0.18;
+
+function detectEpisodes(series, threshold = THRESHOLD) {
+  if (!series || series.length < 20) return [];
+  const eps = [];
+  let peakI = 0, i = 1;
+  while (i < series.length) {
+    if (series[i].c >= series[peakI].c) { peakI = i; i++; continue; }
+    if (series[i].c <= series[peakI].c * (1 - threshold)) {
+      // Schock bestätigt — Tief und Erholung suchen
+      let troughI = i, j = i;
+      while (j < series.length && series[j].c < series[peakI].c) {
+        if (series[j].c < series[troughI].c) troughI = j;
+        j++;
+      }
+      const recovered = j < series.length;
+      eps.push({
+        peakDate: series[peakI].t, peakPrice: series[peakI].c,
+        troughDate: series[troughI].t, troughPrice: series[troughI].c,
+        recoveryDate: recovered ? series[j].t : null,
+        drawdown: (series[troughI].c / series[peakI].c - 1) * 100,
+        toTrough: monthsBetween(series[peakI].t, series[troughI].t),
+        toRecover: recovered ? monthsBetween(series[peakI].t, series[j].t) : null,
+        fromTrough: recovered ? monthsBetween(series[troughI].t, series[j].t) : monthsBetween(series[troughI].t, series[series.length - 1].t),
+        ongoing: !recovered,
+        peakI, troughI, endI: recovered ? j : series.length - 1,
+        // normalisierter Pfad ab Hoch, in % zum Hoch
+        path: series.slice(peakI, (recovered ? j : series.length - 1) + 1)
+          .map((p, k) => ({ w: k, v: (p.c / series[peakI].c - 1) * 100, t: p.t })),
+      });
+      peakI = recovered ? j : series.length - 1;
+      i = recovered ? j + 1 : series.length;
+      continue;
+    }
+    i++;
+  }
+  return eps;
+}
+
+/* ---------------------------- Volatilität -------------------------------- */
+function annualVol(series) {
+  // Jahresweise annualisierte Standardabweichung der Wochenrenditen
+  const byYear = new Map();
+  for (let i = 1; i < series.length; i++) {
+    const r = Math.log(series[i].c / series[i - 1].c);
+    if (!isFinite(r)) continue;
+    const y = new Date(series[i].t).getFullYear();
+    if (!byYear.has(y)) byYear.set(y, []);
+    byYear.get(y).push(r);
+  }
+  const out = [];
+  for (const [y, rs] of byYear) {
+    if (rs.length < 20) continue;
+    const m = rs.reduce((a, b) => a + b, 0) / rs.length;
+    const sd = Math.sqrt(rs.reduce((a, b) => a + (b - m) ** 2, 0) / (rs.length - 1));
+    out.push({ year: y, vol: sd * Math.sqrt(52) * 100 });
+  }
+  return out.sort((a, b) => a.year - b.year);
+}
+
+function maxDrawdownWindow(series) {
+  let peak = -Infinity, mdd = 0;
+  for (const p of series) { if (p.c > peak) peak = p.c; mdd = Math.min(mdd, p.c / peak - 1); }
+  return mdd * 100;
+}
+
+/* ----------------------------- Zeitfenster ------------------------------- */
+const RANGES = { "6M": 6, "1J": 12, "2J": 24, "5J": 60, "Max": null };
+function sliceRange(series, key) {
+  const m = RANGES[key];
+  if (!m) return series;
+  const cut = new Date(series[series.length - 1].t);
+  cut.setMonth(cut.getMonth() - m);
+  const s = series.filter(p => new Date(p.t) >= cut);
+  return s.length > 3 ? s : series;
+}
+
+/* ==========================================================================
+   SVG-Charts — handgeschrieben, damit Grid, Endpunkt und Hover stimmen
+   ========================================================================== */
+function niceTicks(min, max, count = 5) {
+  const span = max - min || 1;
+  const raw = span / count;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || 10 * mag;
+  const out = [];
+  for (let v = Math.ceil(min / step) * step; v <= max + 1e-9; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+
+/* ---------------------- Chart 1: echter Kursverlauf ---------------------- */
+function chartW(el) { return Math.max(360, Math.round(el.clientWidth || 1000)); }
+
+function priceChart(el, series, opts) {
+  const { episodes = [], currency = "" } = opts || {};
+  const W = chartW(el), H = W < 620 ? 300 : 340, P = { t: 16, r: 54, b: 30, l: 8 };
+  const iw = W - P.l - P.r, ih = H - P.t - P.b;
+  const xs = series.map(p => +new Date(p.t));
+  const x0 = xs[0], x1 = xs[xs.length - 1];
+  const lo = Math.min(...series.map(p => p.c)), hi = Math.max(...series.map(p => p.c));
+  const pad = (hi - lo) * 0.12 || hi * 0.05;
+  const yMin = Math.max(0, lo - pad), yMax = hi + pad;
+  const X = t => P.l + ((+new Date(t) - x0) / (x1 - x0 || 1)) * iw;
+  const Y = v => P.t + (1 - (v - yMin) / (yMax - yMin || 1)) * ih;
+
+  const line = series.map((p, i) => (i ? "L" : "M") + X(p.t).toFixed(2) + " " + Y(p.c).toFixed(2)).join(" ");
+  const area = line + ` L ${X(series[series.length - 1].t).toFixed(2)} ${P.t + ih} L ${X(series[0].t).toFixed(2)} ${P.t + ih} Z`;
+
+  const yT = niceTicks(yMin, yMax, 5);
+  const span0 = yMax - yMin;
+  const dec = span0 < 1 ? 3 : span0 < 8 ? 2 : span0 < 60 ? 1 : 0;
+  const grid = yT.map(v => `<line x1="${P.l}" x2="${P.l + iw}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--rule-2)" stroke-width="1"/>
+    <text x="${P.l + iw + 8}" y="${(Y(v) + 4).toFixed(1)}" fill="var(--ink-3)" font-size="11" font-family="IBM Plex Mono, monospace">${fmt(v, dec)}</text>`).join("");
+
+  // Zeitachse
+  const span = (x1 - x0) / (1000 * 60 * 60 * 24 * 365.25);
+  const stepY = span > 8 ? 2 : span > 3 ? 1 : 0;
+  const xLab = [];
+  if (stepY) {
+    for (let y = new Date(x0).getFullYear() + 1; y <= new Date(x1).getFullYear(); y += stepY) {
+      const t = +new Date(y, 0, 1); if (t < x0 || t > x1) continue;
+      xLab.push(`<text x="${X(t).toFixed(1)}" y="${H - 8}" fill="var(--ink-3)" font-size="11" text-anchor="middle" font-family="IBM Plex Mono, monospace">${y}</text>`);
+    }
+  } else {
+    const n = W < 620 ? 3 : 5;
+    for (let k = 0; k <= n; k++) {
+      const t = x0 + (x1 - x0) * k / n;
+      xLab.push(`<text x="${X(t).toFixed(1)}" y="${H - 8}" fill="var(--ink-3)" font-size="11" text-anchor="${k === 0 ? "start" : k === n ? "end" : "middle"}" font-family="IBM Plex Mono, monospace">${mDE(t)}</text>`);
+    }
+  }
+
+  // Schock-Bänder im sichtbaren Fenster
+  const bands = episodes.map(e => {
+    const a = Math.max(+new Date(e.peakDate), x0), b = Math.min(+new Date(e.recoveryDate || e.troughDate), x1);
+    if (b <= a) return "";
+    return `<rect x="${X(a).toFixed(1)}" y="${P.t}" width="${Math.max(1, X(b) - X(a)).toFixed(1)}" height="${ih}" fill="var(--ghost)" opacity="${e.ongoing ? .16 : .1}"/>`;
+  }).join("");
+
+  const last = series[series.length - 1];
+  el.innerHTML = `
+  <div class="chartbox">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Kursverlauf">
+      <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--accent)" stop-opacity=".16"/>
+        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+      </linearGradient></defs>
+      ${bands}${grid}
+      <path d="${area}" fill="url(#pg)"/>
+      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${X(last.t).toFixed(1)}" cy="${Y(last.c).toFixed(1)}" r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>
+      ${xLab.join("")}
+      <g id="cross" opacity="0">
+        <line y1="${P.t}" y2="${P.t + ih}" stroke="var(--ink-3)" stroke-width="1" stroke-dasharray="3 3"/>
+        <circle r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>
+      </g>
+      <rect x="${P.l}" y="${P.t}" width="${iw}" height="${ih}" fill="transparent" id="hit"/>
+    </svg>
+    <div class="tip" id="tip" style="opacity:0"></div>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--accent)"></i>Kurs${currency ? " in " + esc(currency) : ""}</span>
+    ${episodes.length ? `<span><i class="sw-band" style="background:var(--ghost);opacity:.45"></i>Schockphase (Rückgang ≥ 18 % vom Hoch bis zur Erholung)</span>` : ""}
+  </div>`;
+
+  // Hover
+  const svg = el.querySelector("svg"), tip = el.querySelector("#tip"), cross = el.querySelector("#cross");
+  const box = el.querySelector(".chartbox");
+  const move = (ev) => {
+    const r = svg.getBoundingClientRect();
+    const cx = ((ev.clientX ?? ev.touches?.[0]?.clientX) - r.left) / r.width * W;
+    let best = 0, bd = Infinity;
+    series.forEach((p, i) => { const d = Math.abs(X(p.t) - cx); if (d < bd) { bd = d; best = i; } });
+    const p = series[best], px = X(p.t), py = Y(p.c);
+    cross.setAttribute("opacity", "1");
+    cross.querySelector("line").setAttribute("x1", px); cross.querySelector("line").setAttribute("x2", px);
+    cross.querySelector("circle").setAttribute("cx", px); cross.querySelector("circle").setAttribute("cy", py);
+    const chg = (p.c / series[0].c - 1) * 100;
+    tip.innerHTML = `<div class="d">${dDE(p.t)}</div><div class="v">${fmt(p.c)} ${esc(currency)}</div><div class="x">seit Fensterbeginn <b class="${dirClass(chg)}">${pct(chg)}</b></div>`;
+    tip.style.opacity = "1";
+    const rel = px / W * box.clientWidth;
+    tip.style.left = Math.min(Math.max(rel - 70, 0), box.clientWidth - 150) + "px";
+    tip.style.top = (py / H * (box.clientHeight || 340) - 70) + "px";
+  };
+  box.addEventListener("pointermove", move);
+  box.addEventListener("pointerleave", () => { tip.style.opacity = "0"; cross.setAttribute("opacity", "0"); });
+}
+
+/* ------------- Chart 2: Analogie — Episoden ab Hoch übereinander ---------- */
+function analogyChart(el, episodes) {
+  const done = episodes.filter(e => !e.ongoing);
+  const now = episodes.find(e => e.ongoing);
+  const shown = done.slice(-5);
+  const all = [...shown, ...(now ? [now] : [])];
+  if (!all.length) { el.innerHTML = `<p class="card-note">Keine Schockphase mit mindestens 18 % Rückgang in der verfügbaren Historie.</p>`; return; }
+
+  const W = chartW(el), H = W < 620 ? 270 : 300, P = { t: 16, r: 50, b: 28, l: 8 };
+  const iw = W - P.l - P.r, ih = H - P.t - P.b;
+  const maxW = Math.max(...all.map(e => e.path.length - 1), 12);
+  const minV = Math.min(-5, ...all.flatMap(e => e.path.map(p => p.v)));
+  const maxV = Math.max(5, ...all.flatMap(e => e.path.map(p => p.v)));
+  const X = w => P.l + (w / maxW) * iw;
+  const Y = v => P.t + (1 - (v - minV) / (maxV - minV || 1)) * ih;
+
+  const yT = niceTicks(minV, maxV, 5);
+  const grid = yT.map(v => `<line x1="${P.l}" x2="${P.l + iw}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="${v === 0 ? "var(--rule)" : "var(--rule-2)"}" stroke-width="${v === 0 ? 1.5 : 1}"/>
+    <text x="${P.l + iw + 8}" y="${(Y(v) + 4).toFixed(1)}" fill="var(--ink-3)" font-size="11" font-family="IBM Plex Mono, monospace">${v > 0 ? "+" : ""}${fmt(v, 0)}%</text>`).join("");
+
+  const maxTicks = W < 620 ? 4 : 6;
+  const step = [4, 8, 13, 26, 52, 104, 156, 260, 520].find(s => maxW / s <= maxTicks) || 520;
+  const xLab = (() => {
+    const out = [];
+    for (let w = 0; w <= maxW; w += step) {
+      let lab;
+      if (w === 0) lab = "Hoch";
+      else if (step < 52) lab = Math.round(w / 4.345) + " Mon.";
+      else { const y = w / 52; lab = (Number.isInteger(y) ? y : nf(1).format(y)) + " J."; }
+      out.push(`<text x="${X(w).toFixed(1)}" y="${H - 8}" fill="var(--ink-3)" font-size="11" text-anchor="middle" font-family="IBM Plex Mono, monospace">${lab}</text>`);
+    }
+    return out.join("");
+  })();
+
+  // frühere Episoden: eine Grau-Rampe, älteste am hellsten
+  const shades = ["var(--ghost-2)", "var(--ghost-2)", "var(--ghost)", "var(--ghost)", "var(--ghost)"];
+  const past = shown.map((e, i) => {
+    const d = e.path.map((p, k) => (k ? "L" : "M") + X(p.w).toFixed(2) + " " + Y(p.v).toFixed(2)).join(" ");
+    const endW = e.path.length - 1;
+    return `<path d="${d}" fill="none" stroke="${shades[shades.length - shown.length + i] || "var(--ghost)"}" stroke-width="1.7" stroke-linejoin="round"/>
+      <text x="${(X(endW) + 6).toFixed(1)}" y="${(Y(e.path[endW].v) + 4).toFixed(1)}" fill="var(--ink-3)" font-size="10.5" font-family="IBM Plex Mono, monospace">${new Date(e.peakDate).getFullYear()}</text>`;
+  }).join("");
+
+  let cur = "";
+  if (now) {
+    const d = now.path.map((p, k) => (k ? "L" : "M") + X(p.w).toFixed(2) + " " + Y(p.v).toFixed(2)).join(" ");
+    const endW = now.path.length - 1;
+    cur = `<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${X(endW).toFixed(1)}" cy="${Y(now.path[endW].v).toFixed(1)}" r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>
+      <text x="${(X(endW) + 9).toFixed(1)}" y="${(Y(now.path[endW].v) + 4).toFixed(1)}" fill="var(--accent)" font-size="11" font-weight="600" font-family="IBM Plex Mono, monospace">heute</text>`;
+  }
+
+  el.innerHTML = `
+  <div class="chartbox">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Verlauf nach früheren Hochs im Vergleich">
+      ${grid}${past}${cur}${xLab}
+    </svg>
+  </div>
+  <div class="legend">
+    ${now ? `<span><i style="background:var(--accent)"></i>laufende Phase (Hoch ${mDE(now.peakDate)})</span>` : ""}
+    <span><i style="background:var(--ghost)"></i>frühere Phasen, ab ihrem jeweiligen Hoch übereinandergelegt</span>
+  </div>`;
+}
+
+/* ---------------------- kleiner Volatilitäts-Balken ---------------------- */
+function volBars(el, vols) {
+  if (!vols.length) { el.innerHTML = ""; return; }
+  const show = vols.slice(-10);
+  const max = Math.max(...show.map(v => v.vol), 20);
+  el.innerHTML = `<div style="display:flex;gap:5px;align-items:flex-end;height:74px;margin-top:6px">
+    ${show.map(v => `<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:5px" title="${v.year}: ${fmt(v.vol, 0)} % annualisiert">
+      <div style="height:${(v.vol / max * 100).toFixed(1)}%;background:${v.year === show[show.length - 1].year ? "var(--accent)" : "var(--ghost-2)"};border-radius:3px 3px 0 0;min-height:2px"></div>
+      <div class="mono" style="font-size:10px;color:var(--ink-3);text-align:center">'${String(v.year).slice(2)}</div>
+    </div>`).join("")}
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-3);margin-top:8px">
+    <span>Schwankungsbreite je Jahr (annualisiert)</span>
+    <span class="mono">${fmt(show[show.length - 1].vol, 0)} % zuletzt · Ø ${fmt(show.reduce((a, b) => a + b.vol, 0) / show.length, 0)} %</span>
+  </div>`;
+}
+
+/* ==========================================================================
+   Datenschicht — spricht mit der eigenen Edge Function, nicht mit Alpha
+   Vantage. Der API-Schlüssel liegt dort auf dem Server; hier steht nur der
+   öffentliche Supabase-Schlüssel, der genau dafür gedacht ist.
+   ========================================================================== */
+
+const API = "https://lkxfxsadfxrxpsxnsqnb.supabase.co/functions/v1/market";
+const API_KEY = "sb_publishable_jy_QnFrhB3RNZIItB4_8SQ_4SE9ahtz";
+
+const state = {
+  range: "2J", sym: null, series: null, episodes: [], vols: [],
+  earnings: null, overview: null, notes: null, notesPending: false,
+  budget: null, stale: false, fetchedAt: null, busy: false, err: null,
+};
+
+function mkErr(kind, msg) { const e = new Error(msg); e.kind = kind; return e; }
+
+async function call(params) {
+  const url = new URL(API);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+
+  let res;
+  try {
+    res = await fetch(url, { headers: { Authorization: "Bearer " + API_KEY, apikey: API_KEY } });
+  } catch {
+    throw mkErr("offline", "Der Server ist nicht erreichbar.");
+  }
+
+  let body = null;
+  try { body = await res.json(); } catch { /* fällt unten durch */ }
+  if (body?.budget) state.budget = body.budget;
+
+  if (!res.ok || body?.error) {
+    throw mkErr(body?.error?.code || "http_" + res.status, body?.error?.message || `HTTP ${res.status}`);
+  }
+  state.stale = !!body.stale;
+  state.fetchedAt = body.fetchedAt || null;
+  return body;
+}
+
+/* --------------------------- Symbol-Auflösung ---------------------------- */
+const CRYPTO = new Set(["BTC", "ETH", "SOL", "XRP", "ADA", "DOGE", "DOT", "AVAX", "LINK", "LTC",
+  "MATIC", "BCH", "XLM", "ATOM", "UNI", "ETC", "NEAR", "ALGO", "FIL", "AAVE", "TRX", "SHIB"]);
+const CRYPTO_ALIAS = {
+  BITCOIN: "BTC", ETHEREUM: "ETH", ETHER: "ETH", SOLANA: "SOL", RIPPLE: "XRP", CARDANO: "ADA",
+  DOGECOIN: "DOGE", POLKADOT: "DOT", LITECOIN: "LTC", POLYGON: "MATIC", CHAINLINK: "LINK",
+};
+
+function asCrypto(raw) {
+  const k = raw.trim().toUpperCase().replace(/[^A-Z]/g, "");
+  const sym = CRYPTO_ALIAS[k] || (CRYPTO.has(k) ? k : null);
+  if (!sym) return null;
+  const nice = { BTC: "Bitcoin", ETH: "Ethereum", SOL: "Solana", XRP: "XRP", ADA: "Cardano", DOGE: "Dogecoin" };
+  return { symbol: sym, name: nice[sym] || sym, type: "Krypto", region: "global", currency: "EUR" };
+}
+
+async function searchSymbols(q) {
+  return (await call({ op: "search", q })).data;
+}
+
+async function loadSeries(sym) {
+  const p = sym.type === "Krypto"
+    ? { op: "series", symbol: sym.symbol, kind: "crypto", market: "EUR" }
+    : { op: "series", symbol: sym.symbol };
+  return (await call(p)).data;
+}
+
+/* Alpha Vantage hat Fundamentaldaten nur für US-Notierungen. Für alles mit
+   Börsensuffix (BMW.DEX, ASML.AMS …) sparen wir uns die leeren Abrufe —
+   sie würden vom Tagesbudget abgehen, ohne etwas zu liefern. */
+const isUS = (sym) => !sym.symbol.includes(".") || /united states/i.test(sym.region || "");
+
+async function loadEarnings(sym) {
+  if (sym.type !== "Aktie" || !isUS(sym)) return null;
+  const d = (await call({ op: "earnings", symbol: sym.symbol })).data;
+  return d && d.length ? d : null;
+}
+
+async function loadOverview(sym) {
+  if (sym.type === "Krypto" || !isUS(sym)) return null;
+  return (await call({ op: "overview", symbol: sym.symbol })).data;
+}
+
+/* ---- Redaktionelle Einordnung: gepflegt im Chat, hier nur gelesen ------- */
+async function loadNotes(sym) {
+  try {
+    const res = await fetch(
+      `https://lkxfxsadfxrxpsxnsqnb.supabase.co/rest/v1/rpc/kurslot_notes`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: API_KEY, Authorization: "Bearer " + API_KEY },
+        body: JSON.stringify({ p_symbol: sym.symbol }),
+      },
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    return row && (row.drivers?.length || row.episodes?.length) ? row : null;
+  } catch { return null; }
+}
+/* ==========================================================================
+   Rendering
+   ========================================================================== */
+const main = document.getElementById("main");
+
+function render() {
+  if (state.err) return renderError();
+  if (state.busy) return renderBusy();
+  if (!state.sym || !state.series) return renderEmpty();
+  renderReport();
+}
+
+/* ------------------------------- Leerbild -------------------------------- */
+function renderEmpty() {
+  const off = state.offline;
+  main.innerHTML = `
+  <div style="padding:56px 0 40px">
+    <div class="pane">
+      <h2>${off ? "Server nicht erreichbar" : "Was willst du dir ansehen?"}</h2>
+      <p>${off
+        ? "Der Marktdaten-Server antwortet gerade nicht. Prüf deine Verbindung und lade die Seite neu — ohne echte Kurse zeigt Kurslot bewusst gar keine Zahlen statt geschätzter."
+        : "Gib oben ein Symbol, einen Firmennamen oder eine Kryptowährung ein. Kurslot zieht die echte Kurshistorie, misst daraus Schockphasen und Erholungsdauern und stellt Guidance gegen tatsächliche Zahlen."}</p>
+      ${off ? "" : `<div class="ex">
+        <button data-ex="BMW.DEX">BMW.DEX</button>
+        <button data-ex="AAPL">AAPL</button>
+        <button data-ex="ASML">ASML</button>
+        <button data-ex="Bitcoin">Bitcoin</button>
+      </div>`}
+    </div>
+    ${renderFoot()}
+  </div>`;
+  main.querySelectorAll("[data-ex]").forEach(b => b.addEventListener("click", () => {
+    document.getElementById("q").value = b.dataset.ex; go(b.dataset.ex);
+  }));
+}
+
+function renderBusy() {
+  main.innerHTML = `
+  <div style="padding:34px 0">
+    <div class="skel" style="height:34px;width:280px;margin-bottom:12px"></div>
+    <div class="skel" style="height:56px;width:200px;margin-bottom:26px"></div>
+    <div class="card"><div class="loading-line"><span class="spin"></span>${esc(state.busy)}</div>
+      <div class="skel" style="height:250px;margin-top:14px"></div></div>
+  </div>`;
+}
+
+function renderError() {
+  const e = state.err;
+  const fixes = {
+    budget_exhausted: `Das Tageskontingent bei Alpha Vantage ist aufgebraucht (${state.budget?.limit ?? 25} Abrufe). Symbole, die heute schon abgerufen wurden, funktionieren weiterhin — für neue heißt es warten bis morgen. Um Mitternacht UTC setzt der Zähler zurück.`,
+    rate_limited: "Alpha Vantage lässt im Gratis-Tarif nur einen Abruf pro Sekunde zu und hat gebremst. Warte einen Moment und versuch es erneut — dieser Fehlversuch zählt nicht gegen dein Tagesbudget.",
+    no_key: "Auf dem Server ist kein Alpha-Vantage-Schlüssel hinterlegt. Ohne ihn kann Kurslot keine Kurse laden.",
+    db: "Die Datenbank hinter Kurslot antwortet nicht wie erwartet. Das ist ein Fehler auf Serverseite, keiner deiner Eingabe.",
+    offline: "Der Marktdaten-Server ist nicht erreichbar. Prüf deine Internetverbindung und versuch es erneut.",
+    upstream: "Alpha Vantage antwortet gerade nicht. Das ist meist vorübergehend — probier es in einer Minute noch einmal.",
+    thin: "Für dieses Symbol gibt es zu wenig Kurshistorie, um Schockphasen und Erholungsdauern zu messen.",
+    shape: "Die Datenquelle hat in einem unerwarteten Format geantwortet. Das ist ein Fehler in Kurslot, keiner deiner Eingabe.",
+    api: "Alpha Vantage kennt dieses Symbol nicht. Versuch das Börsenkürzel mit Suffix, z. B. BMW.DEX für XETRA oder AAPL für die Nasdaq.",
+    notfound: "Zu dieser Eingabe gibt es keine Kursreihe. Versuch das Börsenkürzel mit Suffix, z. B. BMW.DEX für XETRA oder AAPL für die Nasdaq.",
+    bad_request: "Diese Anfrage war unvollständig. Gib das Symbol noch einmal ein.",
+  };
+  const titles = {
+    budget_exhausted: "Tageskontingent aufgebraucht", rate_limited: "Zu viele Abrufe",
+    no_key: "Kein Zugangsschlüssel", db: "Datenbankfehler", offline: "Keine Verbindung",
+    upstream: "Datenquelle antwortet nicht", thin: "Zu wenig Historie",
+    shape: "Unerwartetes Datenformat", api: "Symbol unbekannt", notfound: "Nichts gefunden",
+    bad_request: "Unvollständige Anfrage",
+  };
+  main.innerHTML = `
+  <div style="padding:48px 0">
+    <div class="pane err">
+      <h2>${esc(titles[e.kind] || "Das hat nicht geklappt")}</h2>
+      <p>${esc(fixes[e.kind] || e.msg || "Unbekannter Fehler.")}</p>
+      <div class="ex"><button id="again">Erneut versuchen</button></div>
+    </div>
+    ${renderFoot()}
+  </div>`;
+  const b = main.querySelector("#again");
+  if (b) b.addEventListener("click", () => { state.err = null; if (state.sym) load(state.sym); else render(); });
+}
+
+/* ------------------------------- Bericht --------------------------------- */
+function renderReport() {
+  const { sym, series, episodes, vols } = state;
+  const cur = sym.currency || "";
+  const last = series[series.length - 1];
+  const view = sliceRange(series, state.range);
+  const chgWin = (last.c / view[0].c - 1) * 100;
+  const prev = series[series.length - 2];
+  const chgWk = prev ? (last.c / prev.c - 1) * 100 : null;
+  const ath = Math.max(...series.map(p => p.c));
+  const fromAth = (last.c / ath - 1) * 100;
+
+  main.innerHTML = `
+  ${staleBanner()}
+  <div class="headstrip">
+    <div class="ident">
+      <div class="chips">
+        <span class="chip k">${esc(sym.type)}</span>
+        <span class="chip">${esc(sym.symbol)}</span>
+        ${sym.region ? `<span class="chip">${esc(sym.region)}</span>` : ""}
+        ${state.overview?.sector ? `<span class="chip">${esc(state.overview.sector)}</span>` : ""}
+      </div>
+      <h1>${esc(sym.name || sym.symbol)}</h1>
+      <div class="meta">Wochenschlusskurse seit ${mDE(series[0].t)} · zuletzt ${dDE(last.t)}</div>
+    </div>
+    <div class="quote">
+      <div class="px">${fmt(last.c, last.c < 1 ? 4 : 2)}<span class="cur">${esc(cur)}</span></div>
+      <div class="delta">
+        <span><em>Woche</em><b class="${dirClass(chgWk)}">${pct(chgWk)}</b></span>
+        <span><em>${esc(state.range)}</em><b class="${dirClass(chgWin)}">${pct(chgWin)}</b></span>
+        <span><em>zum Hoch</em><b class="${dirClass(fromAth)}">${pct(fromAth)}</b></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <div class="card-head">
+        <div><span class="eyebrow">Baustein 1</span><h2>Kursverlauf</h2></div>
+        <div class="seg" role="group" aria-label="Zeitraum">
+          ${Object.keys(RANGES).map(k => `<button data-r="${k}" aria-pressed="${k === state.range}">${k}</button>`).join("")}
+        </div>
+      </div>
+      <div id="chart1"></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <div class="card-head"><div><span class="eyebrow">Baustein 2</span><h2>Ziel gegen Ist</h2></div></div>
+        ${renderTargets()}
+      </section>
+
+      <section class="card">
+        <div class="card-head"><div><span class="eyebrow">Baustein 3</span><h2>Schwankungstreiber</h2></div></div>
+        ${renderDrivers()}
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="card-head">
+        <div><span class="eyebrow">Baustein 4</span><h2>Schock und Erholung</h2></div>
+        <span class="mono" style="font-size:12px;color:var(--ink-3)">${episodes.length} Phase${episodes.length === 1 ? "" : "n"} seit ${new Date(series[0].t).getFullYear()}</span>
+      </div>
+      <p class="card-note">Jede Linie ist ein tatsächlich gelaufener Verlauf, ab dem jeweiligen Hoch übereinandergelegt. Die blaue Linie ist die laufende Phase. Das ist eine Analogie, keine Prognose — wie oft und wie schnell sich der Kurs früher zurückgeholt hat, sagt nichts darüber, ob er es diesmal tut.</p>
+      <div id="chart2"></div>
+      ${renderEpisodes()}
+    </section>
+  </div>
+  ${renderFoot()}`;
+
+  priceChart(main.querySelector("#chart1"), view, { episodes, currency: cur });
+  analogyChart(main.querySelector("#chart2"), episodes);
+  const vb = main.querySelector("#volbars");
+  if (vb) volBars(vb, vols);
+  main.querySelectorAll("[data-r]").forEach(b => b.addEventListener("click", () => {
+    state.range = b.dataset.r; render(); window.scrollTo({ top: 0, behavior: "instant" });
+  }));
+}
+
+/* -------------------------- Baustein 2: Ziel/Ist -------------------------- */
+function renderTargets() {
+  const e = state.earnings;
+  if (!e) {
+    const t = state.sym.type;
+    return `<p class="card-note">${t === "Krypto"
+      ? "Kryptowährungen veröffentlichen keine Ergebnisziele — es gibt hier nichts, wogegen sich ein Ist messen ließe. Für die Einordnung zählen deshalb Bausteine 3 und 4."
+      : t === "ETF"
+        ? "Ein Fonds hat keine eigene Ergebnis-Guidance, sondern folgt seinem Index. Statt Ziel gegen Ist siehst du hier die Jahresrenditen."
+        : "Alpha Vantage führt Quartalszahlen nur für US-Notierungen. Für ein Papier mit Börsensuffix wie diesem fragt Kurslot sie gar nicht erst ab — das würde nur Tagesbudget kosten. Willst du Erwartung gegen Ist sehen, such dieselbe Firma unter ihrer US-Notierung (BMW etwa als BMWYY). Hier stattdessen: die Jahresrenditen."}</p>
+      ${renderYearly()}`;
+  }
+  const rows = e.map(r => {
+    const s = isFinite(r.surprise) ? r.surprise : (isFinite(r.estimated) ? (r.reported / r.estimated - 1) * 100 : null);
+    const cls = s == null ? "n" : s >= 0 ? "g" : s > -8 ? "y" : "r";
+    const lab = s == null ? "keine Schätzung" : s >= 0 ? "erreicht" : s > -8 ? "knapp verfehlt" : "verfehlt";
+    const q = new Date(r.date);
+    return `<div class="row">
+      <span class="dot ${cls}"></span>
+      <div class="lab">
+        <b>Q${Math.floor(q.getMonth() / 3) + 1} ${q.getFullYear()}</b>
+        <span>erwartet ${fmt(r.estimated)} · berichtet ${fmt(r.reported)}</span>
+      </div>
+      <div class="num"><span class="tag ${cls}">${lab}</span><br><span style="color:var(--ink-2)">${s == null ? "" : pct(s, 1)}</span></div>
+    </div>`;
+  }).join("");
+  const hit = e.filter(r => (isFinite(r.surprise) ? r.surprise : 0) >= 0).length;
+  return `<p class="card-note">Gewinn je Aktie: Analystenerwartung zum Zeitpunkt der Meldung gegen die tatsächlich berichtete Zahl. <b>${hit} von ${e.length}</b> der letzten Quartale erreicht oder übertroffen.</p>
+    <div class="rows">${rows}</div>`;
+}
+
+function renderYearly() {
+  const s = state.series;
+  const byYear = new Map();
+  s.forEach(p => byYear.set(new Date(p.t).getFullYear(), p.c));
+  const yrs = [...byYear.keys()].sort().slice(-6);
+  if (yrs.length < 2) return "";
+  const rows = yrs.slice(1).map((y, i) => {
+    const r = (byYear.get(y) / byYear.get(yrs[i]) - 1) * 100;
+    const cls = r >= 0 ? "g" : r > -10 ? "y" : "r";
+    return `<div class="row"><span class="dot ${cls}"></span>
+      <div class="lab"><b>${y}</b><span>Jahresende gegen Vorjahresende</span></div>
+      <div class="num ${dirClass(r)}">${pct(r)}</div></div>`;
+  }).join("");
+  return `<div class="rows" style="margin-top:14px">${rows}</div>`;
+}
+
+/* ------------------------ Baustein 3: Treiber ---------------------------- */
+function renderDrivers() {
+  const d = state.notes?.drivers;
+  const risk = { hoch: ["var(--bad)", "wiederholt sich wahrscheinlich"], mittel: ["var(--warn)", "kann wiederkehren"], niedrig: ["var(--good)", "eher einmalig"] };
+  const list = d ? d.map(x => {
+    const [col, lab] = risk[String(x.risk || "").toLowerCase()] || risk.mittel;
+    return `<div class="driver">
+      <span class="stripe" style="background:${col}"></span>
+      <div><h3>${esc(x.name)}</h3><p>${esc(x.note)}</p>
+        <p style="color:var(--ink-3);font-size:11.5px;margin-top:4px">${esc(lab)}</p></div>
+      <span class="when">${esc(x.last || "")}</span>
+    </div>`;
+  }).join("") : `<p class="card-note">${state.notesPending ? '<span class="spin"></span> Einordnung wird geladen …' : "Für dieses Symbol ist noch keine inhaltliche Einordnung hinterlegt. Die gemessenen Phasen und die Schwankungsbreite stehen unten trotzdem — sie kommen aus der Kursreihe, nicht aus einer Einschätzung."}</p>`;
+  return `<p class="card-note">Was den Kurs in der Vergangenheit bewegt hat — und wie wahrscheinlich es wieder auftritt.</p>
+    <div class="drivers">${list}</div>
+    <div id="volbars" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--rule-2)"></div>`;
+}
+
+/* ----------------------- Baustein 4: Episodentabelle --------------------- */
+function renderEpisodes() {
+  const eps = state.episodes;
+  if (!eps.length) return "";
+  const named = new Map((state.notes?.episodes || []).map(e => [e.peakDate, e]));
+  const done = eps.filter(e => !e.ongoing);
+  const med = done.length ? [...done.map(e => e.toRecover)].sort((a, b) => a - b)[Math.floor(done.length / 2)] : null;
+  const rows = [...eps].reverse().map(e => {
+    const n = named.get(e.peakDate);
+    return `<tr class="${e.ongoing ? "now" : ""}">
+      <td class="ev">${esc(n?.event || "Rückgang " + mDE(e.peakDate))}${n?.why ? `<small>${esc(n.why)}</small>` : ""}</td>
+      <td class="mono">${mDE(e.peakDate)}</td>
+      <td class="mono r down">${fmt(e.drawdown, 0)} %</td>
+      <td class="mono r">${fmtDuration(e.toTrough)}</td>
+      <td class="r">${e.ongoing
+        ? `<span class="tag y">läuft · ${fmtDuration(e.fromTrough)} seit Tief</span>`
+        : `<span class="mono">${fmtDuration(e.toRecover)}</span>`}</td>
+    </tr>`;
+  }).join("");
+  return `<div style="overflow-x:auto">
+    <table class="eps">
+      <thead><tr>
+        <th>Phase</th><th>Hoch</th><th class="r">Rückgang</th><th class="r">bis zum Tief</th><th class="r">bis zurück am Hoch</th>
+      </tr></thead><tbody>${rows}</tbody>
+    </table></div>
+    ${summaryLine(done, med)}`;
+}
+
+function summaryLine(done, med) {
+  if (!done.length) return `<p class="card-note" style="margin:16px 0 0">Keine dieser Phasen ist bisher abgeschlossen — es gibt also keine Erholungsdauer, an der sich die laufende messen ließe.</p>`;
+  if (done.length === 1) return `<p class="card-note" style="margin:16px 0 0">Die einzige abgeschlossene Phase brauchte <b>${fmtDuration(done[0].toRecover)}</b> vom Hoch zurück zum Hoch. Eine einzelne Erholung ist kein Muster.</p>`;
+  const lo = Math.min(...done.map(x => x.toRecover)), hi = Math.max(...done.map(x => x.toRecover));
+  return `<p class="card-note" style="margin:16px 0 0">Von ${done.length} abgeschlossenen Phasen brauchte die mittlere <b>${fmtDuration(med)}</b> vom Hoch zurück zum Hoch, die schnellste ${fmtDuration(lo)}, die längste ${fmtDuration(hi)}.</p>`;
+}
+
+function renderFoot() {
+  return `<footer class="foot">
+    <p><b>Keine Anlageberatung.</b> Kurslot zeigt vergangene Kurse und daraus gemessene Kennzahlen. Es gibt keine Empfehlung ab, prognostiziert keinen Kurs und kennt deine Situation nicht. Vergangene Erholungen sind kein Versprechen für kommende.</p>
+    <p style="text-align:right">Kurse und Fundamentaldaten: Alpha Vantage,<br>Wochenschlusskurse, verzögert.${budgetLine()}</p>
+  </footer>`;
+}
+
+function budgetLine() {
+  const b = state.budget;
+  if (!b || b.used == null) return "";
+  const left = Math.max(0, b.limit - b.used);
+  return `<br><span class="mono" style="font-size:11px">Heute noch ${left} von ${b.limit} Abrufen frei</span>`;
+}
+
+/** Kleines Band über dem Bericht, wenn die Zahlen aus dem Zwischenspeicher kommen. */
+function staleBanner() {
+  if (!state.stale || !state.fetchedAt) return "";
+  return `<div class="stale">Diese Zahlen kommen aus dem Zwischenspeicher, Stand ${dDE(state.fetchedAt)}. Ein neuer Abruf war heute nicht mehr möglich.</div>`;
+}
+
+/* ==========================================================================
+   Steuerung
+   ========================================================================== */
+async function load(sym) {
+  state.sym = sym; state.err = null; state.notes = null; state.notesPending = true;
+  state.busy = `${sym.name || sym.symbol} wird geladen …`; render();
+  try {
+    const series = await loadSeries(sym);
+    if (!series || series.length < 20) throw mkErr("notfound", "zu wenig Kurshistorie");
+    state.series = series;
+    state.episodes = detectEpisodes(series);
+    state.vols = annualVol(series);
+    state.busy = false;
+    try { state.earnings = await loadEarnings(sym); } catch { state.earnings = null; }
+    try { state.overview = await loadOverview(sym); } catch { state.overview = null; }
+    if (state.overview?.name) sym.name = state.overview.name;
+    if (state.overview?.currency) sym.currency = state.overview.currency;
+    render();
+    loadNotes(sym).then(n => {
+      state.notes = n; state.notesPending = false;
+      if (state.sym === sym && !state.busy) render();
+    });
+  } catch (err) {
+    state.busy = false;
+    state.err = { kind: err.kind || err.code || "api", msg: err.message };
+    render();
+  }
+}
+
+async function go(q) {
+  q = (q || "").trim(); if (!q) return;
+  hideSugg();
+  const c = asCrypto(q);
+  if (c) return load(c);
+  state.busy = `„${q}" wird gesucht …`; state.err = null; render();
+  try {
+    const hits = await searchSymbols(q);
+    if (!hits.length) throw mkErr("notfound", "keine Treffer");
+    await load(hits[0]);
+  } catch (err) {
+    state.busy = false;
+    state.err = { kind: err.kind || err.code || "notfound", msg: err.message };
+    render();
+  }
+}
+
+/* ------------------------------ Suchfeld --------------------------------- */
+const qEl = document.getElementById("q"), sEl = document.getElementById("sugg");
+let sT = null, sIdx = -1, sItems = [];
+
+function hideSugg() { clearTimeout(sT); sEl.hidden = true; qEl.setAttribute("aria-expanded", "false"); sIdx = -1; }
+
+qEl.addEventListener("input", () => {
+  clearTimeout(sT);
+  const v = qEl.value.trim();
+  if (v.length < 2) return hideSugg();
+  sT = setTimeout(async () => {
+    try {
+      const c = asCrypto(v);
+      const hits = await searchSymbols(v);
+      sItems = (c ? [c] : []).concat(hits).slice(0, 7);
+      if (!sItems.length) return hideSugg();
+      sEl.innerHTML = sItems.map((r, i) => `<button role="option" data-i="${i}" aria-selected="false">
+        <span class="sym">${esc(r.symbol)}</span><span class="nm">${esc(r.name)}</span><span class="rg">${esc(r.type)}${r.region ? " · " + esc(r.region) : ""}</span></button>`).join("");
+      sEl.hidden = false; qEl.setAttribute("aria-expanded", "true"); sIdx = -1;
+      sEl.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+        const r = sItems[+b.dataset.i]; qEl.value = r.symbol; hideSugg(); load(r);
+      }));
+    } catch { hideSugg(); }
+  }, 320);
+});
+
+qEl.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter") { ev.preventDefault(); if (sIdx >= 0 && sItems[sIdx]) { qEl.value = sItems[sIdx].symbol; hideSugg(); load(sItems[sIdx]); } else go(qEl.value); return; }
+  if (sEl.hidden) return;
+  if (ev.key === "Escape") return hideSugg();
+  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+    ev.preventDefault();
+    sIdx = (sIdx + (ev.key === "ArrowDown" ? 1 : -1) + sItems.length) % sItems.length;
+    sEl.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-selected", String(i === sIdx)));
+  }
+});
+document.addEventListener("click", e => { if (!e.target.closest(".searchbox")) hideSugg(); });
+
+/* Charts an neue Breite anpassen */
+let rT = null, lastW = window.innerWidth;
+window.addEventListener("resize", () => {
+  if (Math.abs(window.innerWidth - lastW) < 24) return;
+  lastW = window.innerWidth;
+  clearTimeout(rT);
+  rT = setTimeout(() => { if (state.sym && state.series && !state.busy && !state.err) render(); }, 180);
+});
+
+/* ------------------------------- Theme ----------------------------------- */
+const tBtn = document.getElementById("theme");
+const ICON = {
+  light: '<svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="3.6"/><path d="M10 2v1.8M10 16.2V18M18 10h-1.8M3.8 10H2M15.7 4.3l-1.3 1.3M5.6 14.4l-1.3 1.3M15.7 15.7l-1.3-1.3M5.6 5.6 4.3 4.3"/></svg>',
+  dark: '<svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M16.5 12.4A7 7 0 0 1 7.6 3.5a7 7 0 1 0 8.9 8.9Z"/></svg>',
+};
+let theme = null;
+try { theme = localStorage.getItem("kurslot-theme"); } catch { }
+function applyTheme() {
+  if (theme) document.documentElement.setAttribute("data-theme", theme);
+  else document.documentElement.removeAttribute("data-theme");
+  const dark = theme ? theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  tBtn.innerHTML = dark ? ICON.light : ICON.dark;
+  tBtn.setAttribute("aria-label", dark ? "Zu hell wechseln" : "Zu dunkel wechseln");
+}
+tBtn.addEventListener("click", () => {
+  const dark = theme ? theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  theme = dark ? "light" : "dark";
+  try { localStorage.setItem("kurslot-theme", theme); } catch { }
+  applyTheme();
+  if (state.sym && state.series && !state.busy) render();
+});
+applyTheme();
+render();
+
+/* Beim Start einmal das Tagesbudget holen — das prüft zugleich, ob der
+   Server überhaupt erreichbar ist, und kostet keinen Alpha-Vantage-Abruf. */
+(async () => {
+  try {
+    const r = await fetch(`${API}?op=budget`, { headers: { Authorization: "Bearer " + API_KEY, apikey: API_KEY } });
+    state.budget = await r.json();
+    state.offline = false;
+  } catch {
+    state.offline = true;
+  }
+  if (!state.sym && !state.busy) render();
+})();
+
+</script>
+
+</body>
+</html>

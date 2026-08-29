@@ -1,0 +1,283 @@
+<title>Kurslot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* ============================== TOKENS ============================== */
+:root{
+  --ground:#f5f5f2; --surface:#ffffff; --sunken:#eceee7; --raised:#fafaf7;
+  --ink:#191c18; --ink-2:#5a6058; --ink-3:#8b9187;
+  --rule:#dcded6; --rule-2:#e9eae3;
+  --accent:#2f55c4; --accent-ink:#1e3d99; --accent-wash:#e6ebfa;
+  --good:#1e7f4a; --warn:#b87a00; --bad:#a62e1c;
+  --good-wash:#e2f0e8; --warn-wash:#f6ecd8; --bad-wash:#f7e5e1;
+  --ghost:#b9beb2; --ghost-2:#cfd3c8;
+  --shadow:0 1px 2px rgba(25,28,24,.05), 0 8px 24px -16px rgba(25,28,24,.25);
+  --focus:#2f55c4;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#101210; --surface:#181b17; --sunken:#131610; --raised:#1d211c;
+    --ink:#e9ebe4; --ink-2:#969c90; --ink-3:#6d7369;
+    --rule:#2a2e27; --rule-2:#232720;
+    --accent:#6e88e4; --accent-ink:#a2b3f0; --accent-wash:#1c2338;
+    --good:#3e9c60; --warn:#c0a016; --bad:#d4503c;
+    --good-wash:#16261c; --warn-wash:#282210; --bad-wash:#2c1815;
+    --ghost:#4d5349; --ghost-2:#3a3f36;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+    --focus:#8ea4ee;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101210; --surface:#181b17; --sunken:#131610; --raised:#1d211c;
+  --ink:#e9ebe4; --ink-2:#969c90; --ink-3:#6d7369;
+  --rule:#2a2e27; --rule-2:#232720;
+  --accent:#6e88e4; --accent-ink:#a2b3f0; --accent-wash:#1c2338;
+  --good:#3e9c60; --warn:#c0a016; --bad:#d4503c;
+  --good-wash:#16261c; --warn-wash:#282210; --bad-wash:#2c1815;
+  --ghost:#4d5349; --ghost-2:#3a3f36;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  --focus:#8ea4ee;
+  color-scheme:dark;
+}
+
+/* ============================== BASE ============================== */
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:"Bricolage Grotesque","Instrument Sans",system-ui,sans-serif;font-weight:700;text-wrap:balance;margin:0;letter-spacing:-.015em}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+button{font:inherit;color:inherit;cursor:pointer}
+[hidden]{display:none!important}
+
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px 72px}
+
+/* ============================== COMMAND BAR ============================== */
+.top{
+  position:sticky;top:0;z-index:40;background:var(--ground);
+  border-bottom:1px solid var(--rule);
+}
+.top-in{max-width:1180px;margin:0 auto;padding:14px 20px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:9px;flex:0 0 auto}
+.brand .name{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:19px;letter-spacing:-.02em}
+.brand .sub{font-size:11px;color:var(--ink-3);letter-spacing:.09em;text-transform:uppercase;font-weight:500}
+
+.searchbox{flex:1 1 320px;min-width:240px;position:relative}
+.searchbox input{
+  width:100%;padding:11px 14px 11px 38px;border-radius:9px;
+  border:1px solid var(--rule);background:var(--surface);color:var(--ink);
+  font:500 15px/1.2 "IBM Plex Mono",monospace;letter-spacing:.01em;
+}
+.searchbox input::placeholder{color:var(--ink-3);font-weight:400;letter-spacing:0;font-family:"Instrument Sans",sans-serif}
+.searchbox input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-wash)}
+.searchbox .glyph{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--ink-3);pointer-events:none;display:flex}
+.sugg{
+  position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;
+  background:var(--surface);border:1px solid var(--rule);border-radius:10px;
+  box-shadow:var(--shadow);overflow:hidden;max-height:320px;overflow-y:auto;
+}
+.sugg button{
+  display:flex;width:100%;gap:12px;align-items:baseline;padding:10px 14px;
+  background:none;border:0;border-bottom:1px solid var(--rule-2);text-align:left;
+}
+.sugg button:last-child{border-bottom:0}
+.sugg button:hover,.sugg button[aria-selected="true"]{background:var(--sunken)}
+.sugg .sym{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:13px;flex:0 0 auto;min-width:76px}
+.sugg .nm{font-size:13px;color:var(--ink-2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sugg .rg{font-size:11px;color:var(--ink-3);flex:0 0 auto}
+
+.themebtn{
+  flex:0 0 auto;width:36px;height:36px;display:grid;place-items:center;
+  border:1px solid var(--rule);border-radius:9px;background:var(--surface);color:var(--ink-2);
+}
+.themebtn:hover{color:var(--ink);border-color:var(--ink-3)}
+
+/* ============================== HEADSTRIP ============================== */
+.headstrip{display:flex;gap:28px;align-items:flex-end;flex-wrap:wrap;padding:30px 0 22px}
+.ident{flex:1 1 300px;min-width:0}
+.chips{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:9px}
+.chip{
+  font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:600;
+  padding:3px 8px;border-radius:5px;background:var(--sunken);color:var(--ink-2);border:1px solid var(--rule-2);
+}
+.chip.k{background:var(--accent-wash);color:var(--accent-ink);border-color:transparent}
+.ident h1{font-size:clamp(26px,4vw,38px);line-height:1.1}
+.ident .meta{font-size:13px;color:var(--ink-2);margin-top:6px}
+.quote{flex:0 0 auto;text-align:right}
+.quote .px{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-size:clamp(30px,5vw,44px);font-weight:600;line-height:1;letter-spacing:-.02em}
+.quote .cur{font-size:.5em;color:var(--ink-2);font-weight:400;margin-left:6px}
+.quote .delta{margin-top:8px;display:flex;gap:14px;justify-content:flex-end;font-family:"IBM Plex Mono",monospace;font-size:13px;font-variant-numeric:tabular-nums}
+.up{color:var(--good)} .down{color:var(--bad)} .flat{color:var(--ink-2)}
+.quote .delta span b{font-weight:600}
+.quote .delta em{font-style:normal;color:var(--ink-3);font-family:"Instrument Sans",sans-serif;margin-right:5px}
+
+/* ============================== CARDS ============================== */
+.card{
+  background:var(--surface);border:1px solid var(--rule);border-radius:13px;
+  padding:20px 22px 22px;box-shadow:var(--shadow);
+}
+.card + .card, .grid, .card-stack > * + *{margin-top:0}
+.stack{display:flex;flex-direction:column;gap:18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+
+.card-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:4px;flex-wrap:wrap}
+.card-head h2{font-size:16px;letter-spacing:-.01em}
+.eyebrow{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);font-weight:600;font-family:"Instrument Sans",sans-serif}
+.card-note{font-size:13px;color:var(--ink-2);margin:6px 0 16px;max-width:62ch}
+
+/* segmented control */
+.seg{display:inline-flex;background:var(--sunken);border-radius:8px;padding:3px;gap:2px;border:1px solid var(--rule-2)}
+.seg button{
+  border:0;background:none;padding:5px 11px;border-radius:6px;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;color:var(--ink-2);
+}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.seg button:hover{color:var(--ink)}
+
+/* ============================== CHART ============================== */
+.chartbox{position:relative;width:100%}
+.chartbox svg{display:block;width:100%;height:auto;overflow:visible}
+.tip{
+  position:absolute;pointer-events:none;z-index:20;
+  background:var(--surface);border:1px solid var(--rule);border-radius:8px;
+  padding:8px 11px;box-shadow:var(--shadow);font-size:12.5px;min-width:120px;
+  transition:opacity .1s;
+}
+.tip .d{color:var(--ink-3);font-size:11px;margin-bottom:3px}
+.tip .v{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:15px;font-variant-numeric:tabular-nums}
+.tip .x{color:var(--ink-2);font-size:11.5px;margin-top:3px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--ink-2)}
+.legend i{display:inline-block;width:16px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.legend .sw-band{height:11px;width:14px;border-radius:3px}
+
+/* ============================== AMPEL ROWS ============================== */
+.rows{display:flex;flex-direction:column;gap:0;margin-top:6px}
+.row{
+  display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;
+  padding:11px 0;border-bottom:1px solid var(--rule-2);
+}
+.row:last-child{border-bottom:0}
+.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.dot.g{background:var(--good)} .dot.y{background:var(--warn)} .dot.r{background:var(--bad)} .dot.n{background:var(--ghost)}
+.row .lab{min-width:0}
+.row .lab b{display:block;font-weight:600;font-size:13.5px}
+.row .lab span{display:block;font-size:12px;color:var(--ink-2)}
+.row .num{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-size:13px;text-align:right;white-space:nowrap}
+.tag{
+  display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+  padding:2px 7px;border-radius:5px;letter-spacing:.02em;
+}
+.tag.g{background:var(--good-wash);color:var(--good)}
+.tag.y{background:var(--warn-wash);color:var(--warn)}
+.tag.r{background:var(--bad-wash);color:var(--bad)}
+.tag.n{background:var(--sunken);color:var(--ink-2)}
+
+/* bullet bar: ist vs erwartet */
+.bullet{position:relative;height:22px}
+.bullet .track{position:absolute;left:0;right:0;top:9px;height:4px;background:var(--sunken);border-radius:2px}
+.bullet .fill{position:absolute;top:9px;height:4px;border-radius:2px}
+.bullet .mark{position:absolute;top:4px;width:2px;height:14px;background:var(--ink);border-radius:1px}
+
+/* ============================== DRIVER LIST ============================== */
+.drivers{display:flex;flex-direction:column;gap:2px;margin-top:8px}
+.driver{
+  display:grid;grid-template-columns:3px 1fr auto;gap:13px;align-items:start;
+  padding:12px 0;border-bottom:1px solid var(--rule-2);
+}
+.driver:last-child{border-bottom:0}
+.driver .stripe{width:3px;border-radius:2px;align-self:stretch;min-height:34px}
+.driver h3{font-size:13.5px;font-weight:600;font-family:"Instrument Sans",sans-serif;letter-spacing:0}
+.driver p{margin:3px 0 0;font-size:12.5px;color:var(--ink-2);line-height:1.5}
+.driver .when{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-3);white-space:nowrap;padding-top:2px}
+
+/* ============================== EPISODES ============================== */
+.eps{width:100%;min-width:520px;border-collapse:collapse;font-size:13px;margin-top:8px}
+.eps th{
+  text-align:left;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);font-weight:600;padding:0 10px 8px 0;border-bottom:1px solid var(--rule);
+}
+.eps th.r,.eps td.r{text-align:right;padding-right:0}
+.eps td{padding:10px 10px 10px 0;border-bottom:1px solid var(--rule-2);vertical-align:middle}
+.eps tr:last-child td{border-bottom:0}
+.eps tr.now td{background:var(--accent-wash)}
+.eps tr.now td:first-child{border-radius:6px 0 0 6px;box-shadow:inset 2px 0 0 var(--accent)}
+.eps tr.now td:last-child{border-radius:0 6px 6px 0}
+.eps .mono{font-size:12.5px}
+.eps .ev{font-weight:600;font-size:13px}
+.eps .ev small{display:block;font-weight:400;font-size:11.5px;color:var(--ink-2);margin-top:1px;line-height:1.4}
+
+.stale{
+  display:flex;gap:9px;align-items:baseline;margin:22px 0 -6px;padding:10px 14px;
+  border-radius:9px;background:var(--warn-wash);color:var(--warn);
+  font-size:12.5px;font-weight:500;border:1px solid transparent;
+}
+
+/* ============================== STATES ============================== */
+.pane{
+  border:1px dashed var(--rule);border-radius:13px;background:var(--raised);
+  padding:34px 26px;text-align:center;color:var(--ink-2);
+}
+.pane h2{font-size:18px;color:var(--ink);margin-bottom:8px}
+.pane p{margin:0 auto;max-width:56ch;font-size:14px}
+.pane .ex{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+.pane .ex button{
+  font-family:"IBM Plex Mono",monospace;font-size:12.5px;padding:7px 12px;
+  border:1px solid var(--rule);border-radius:8px;background:var(--surface);color:var(--ink-2);
+}
+.pane .ex button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-wash)}
+.pane.err{border-style:solid;border-color:var(--bad);background:var(--bad-wash)}
+.pane.err h2{color:var(--bad)}
+
+.skel{background:linear-gradient(90deg,var(--sunken) 25%,var(--rule-2) 50%,var(--sunken) 75%);background-size:400% 100%;animation:sh 1.4s ease-in-out infinite;border-radius:6px}
+@keyframes sh{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}*{transition:none!important}}
+
+.spin{width:15px;height:15px;border:2px solid var(--rule);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;display:inline-block;vertical-align:-3px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.loading-line{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-2);padding:6px 0}
+
+@media (max-width:560px){
+  .brand{flex:1 1 auto}
+  .searchbox{order:3;flex:1 1 100%}
+  .quote{text-align:left;flex:1 1 100%}
+  .quote .delta{justify-content:flex-start}
+  .headstrip{gap:16px;padding:22px 0 18px}
+  .card{padding:16px 15px 18px}
+  .wrap{padding:0 14px 56px}
+  .top-in{padding:12px 14px;gap:12px}
+  .foot{flex-direction:column;gap:12px}
+  .foot p[style]{text-align:left!important}
+}
+.foot{margin-top:34px;padding-top:20px;border-top:1px solid var(--rule);font-size:12px;color:var(--ink-2);display:flex;gap:20px;justify-content:space-between;flex-wrap:wrap;line-height:1.6}
+.foot p{margin:0;max-width:70ch}
+.foot b{color:var(--ink-2);font-weight:600}
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <span class="name">Kurslot</span>
+      <span class="sub">Marktlage einordnen</span>
+    </div>
+    <div class="searchbox">
+      <span class="glyph" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="7" cy="7" r="4.7"/><path d="M10.5 10.5 14 14" stroke-linecap="round"/></svg>
+      </span>
+      <input id="q" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Aktie, ETF oder Krypto eingeben – z. B. BMW, VWCE, Bitcoin"
+             aria-label="Symbol suchen" aria-expanded="false" role="combobox" aria-controls="sugg">
+      <div class="sugg" id="sugg" role="listbox" hidden></div>
+    </div>
+    <button class="themebtn" id="theme" aria-label="Hell/Dunkel wechseln" title="Hell/Dunkel wechseln"></button>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+

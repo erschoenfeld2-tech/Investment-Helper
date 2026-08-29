@@ -1,0 +1,15 @@
+{
+  "name": "kurslot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aktien, ETFs und Krypto einordnen: echter Kursverlauf, Guidance gegen Ist, Schwankungstreiber und historische Erholungsmuster.",
+  "scripts": {
+    "build": "python build.py",
+    "minify": "node minify.js",
+    "test": "python build.py && node test/shot.js"
+  },
+  "devDependencies": {
+    "playwright": "1.49.1",
+    "terser": "5.36.0"
+  }
+}
