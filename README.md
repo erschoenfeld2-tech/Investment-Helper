@@ -9,18 +9,24 @@ Kurs. Es zeigt Vergangenes und daraus Gemessenes, damit man selbst entscheiden k
 
 ---
 
-## Die vier Bausteine
+## Die fünf Bausteine
 
 | # | Baustein | Woher die Zahlen kommen |
 |---|----------|-------------------------|
-| 1 | **Kursverlauf** — Wochenschlusskurse, Zeitraum 6M/1J/2J/5J/Max, Schockphasen als Bänder | Alpha Vantage, `TIME_SERIES_WEEKLY_ADJUSTED` |
+| 1 | **Kursverlauf** — Wochenschlusskurse, Zeitraum 6M/1J/2J/5J/Max, Schockphasen als Bänder, SMA 50/200 Wochen als Kontext | Twelve Data oder Alpha Vantage; SMA aus der Kursreihe gerechnet |
 | 2 | **Ziel gegen Ist** — Analystenerwartung gegen berichteten Gewinn je Aktie, Ampel | Alpha Vantage, `EARNINGS` (nur US-Notierungen) |
 | 3 | **Schwankungstreiber** — wiederkehrende Risiken mit Wiederholungswahrscheinlichkeit, dazu Schwankungsbreite je Jahr | Tabelle `kurslot.notes` (redaktionell) + aus der Kursreihe gerechnet |
 | 4 | **Schock und Erholung** — alle Rückgänge ≥ 18 % vom Hoch, ab ihrem jeweiligen Hoch übereinandergelegt | vollständig aus der Kursreihe gerechnet |
+| 5 | **Bewertung** — KGV, KUV, EV/EBITDA, Dividendenrendite, Ausschüttungsquote, RSI (14 Wochen) | Alpha Vantage, `OVERVIEW` (nur US-Notierungen); RSI aus der Kursreihe gerechnet |
 
 Baustein 4 ist die Antwort auf die Frage „wie könnte es weitergehen": **keine erfundene
 Zukunftslinie**, sondern die tatsächlich gelaufenen Verläufe früherer Schocks, gegen die
 laufende Phase gelegt. Eine Analogie, ausdrücklich keine Prognose.
+
+Baustein 5 ordnet ein, wie der Markt das Unternehmen *aktuell* bewertet — ebenfalls keine
+Kaufempfehlung und keine Prognose, nur eingeordnete Fakten. SMA und RSI sind bewusst als
+Kontext beschriftet ("Kontext, kein Signal"): sie beschreiben die Vergangenheit des
+Kursverlaufs, nicht dessen Zukunft.
 
 ---
 

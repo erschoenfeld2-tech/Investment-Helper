@@ -287,6 +287,11 @@ function earningsFrom(raw: unknown) {
     .filter((r) => Number.isFinite(r.reported));
 }
 
+const numOrNull = (v: string | undefined): number | null => {
+  const n = parseFloat(v ?? "");
+  return Number.isFinite(n) ? n : null;
+};
+
 function overviewFrom(raw: unknown) {
   const o = raw as Record<string, string>;
   if (!o?.Symbol) return null;
@@ -295,6 +300,14 @@ function overviewFrom(raw: unknown) {
     industry: o.Industry || null, currency: o.Currency || null,
     exchange: o.Exchange || null, country: o.Country || null,
     description: o.Description || null,
+    // Baustein 5 (Bewertung) — Alpha Vantage liefert fehlende Werte als
+    // Text "None" statt eines JSON-Nulls, daher über numOrNull filtern.
+    peRatio: numOrNull(o.PERatio),
+    priceToSales: numOrNull(o.PriceToSalesRatioTTM),
+    evToEbitda: numOrNull(o.EVToEBITDA),
+    dividendYield: numOrNull(o.DividendYield),
+    dividendPerShare: numOrNull(o.DividendPerShare),
+    eps: numOrNull(o.EPS),
   };
 }
 

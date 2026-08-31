@@ -93,6 +93,42 @@ function maxDrawdownWindow(series) {
   return mdd * 100;
 }
 
+/* ------------------------ Gleitender Durchschnitt ------------------------
+   Reiner Chart-Kontext (Golden/Death Cross ablesbar), kein Signal — deshalb
+   nie ohne den jeweils anderen und nie mit einer Handlungsempfehlung
+   beschriftet. Läuft auf denselben Wochenschlusskursen wie Baustein 1, also
+   "50/200 Wochen" statt der auf Tageskursen üblichen "50/200 Tage". */
+function computeSma(series, period) {
+  if (!series || series.length < period) return [];
+  const out = [];
+  let sum = 0;
+  for (let i = 0; i < series.length; i++) {
+    sum += series[i].c;
+    if (i >= period) sum -= series[i - period].c;
+    if (i >= period - 1) out.push({ t: series[i].t, v: sum / period });
+  }
+  return out;
+}
+
+/* ---------------------------------- RSI -----------------------------------
+   Vereinfachte Variante (gleitender Mittelwert der letzten `period` Wochen-
+   veränderungen, nicht Wilders geglätteter RSI) — für einen Kontextwert
+   genau genug, ausdrücklich kein Handelssignal. Auf Wochenbasis, wie der
+   Rest der Seite; die üblichen Schwellen 30/70 bleiben unverändert gültig. */
+function computeRsi(series, period = 14) {
+  if (!series || series.length < period + 1) return null;
+  let gains = 0, losses = 0;
+  for (let i = series.length - period; i < series.length; i++) {
+    const diff = series[i].c - series[i - 1].c;
+    if (diff > 0) gains += diff; else losses -= diff;
+  }
+  const avgGain = gains / period, avgLoss = losses / period;
+  if (avgGain === 0 && avgLoss === 0) return 50;
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - 100 / (1 + rs);
+}
+
 /* ----------------------------- Zeitfenster ------------------------------- */
 const RANGES = { "6M": 6, "1J": 12, "2J": 24, "5J": 60, "Max": null };
 function sliceRange(series, key) {
@@ -121,18 +157,25 @@ function niceTicks(min, max, count = 5) {
 function chartW(el) { return Math.max(360, Math.round(el.clientWidth || 1000)); }
 
 function priceChart(el, series, opts) {
-  const { episodes = [], currency = "" } = opts || {};
+  const { episodes = [], currency = "", sma50 = [], sma200 = [] } = opts || {};
   const W = chartW(el), H = W < 620 ? 300 : 340, P = { t: 16, r: 54, b: 30, l: 8 };
   const iw = W - P.l - P.r, ih = H - P.t - P.b;
   const xs = series.map(p => +new Date(p.t));
   const x0 = xs[0], x1 = xs[xs.length - 1];
-  const lo = Math.min(...series.map(p => p.c)), hi = Math.max(...series.map(p => p.c));
+  // SMA-Punkte im sichtbaren Fenster fließen in die Skalierung ein, sonst
+  // könnte eine nachlaufende Linie oben oder unten aus dem Chart heraushängen.
+  const inWindow = (p) => { const t = +new Date(p.t); return t >= x0 && t <= x1; };
+  const sma50V = sma50.filter(inWindow), sma200V = sma200.filter(inWindow);
+  const allV = series.map(p => p.c).concat(sma50V.map(p => p.v), sma200V.map(p => p.v));
+  const lo = Math.min(...allV), hi = Math.max(...allV);
   const pad = (hi - lo) * 0.12 || hi * 0.05;
   const yMin = Math.max(0, lo - pad), yMax = hi + pad;
   const X = t => P.l + ((+new Date(t) - x0) / (x1 - x0 || 1)) * iw;
   const Y = v => P.t + (1 - (v - yMin) / (yMax - yMin || 1)) * ih;
 
   const line = series.map((p, i) => (i ? "L" : "M") + X(p.t).toFixed(2) + " " + Y(p.c).toFixed(2)).join(" ");
+  const smaLine = (pts) => pts.map((p, i) => (i ? "L" : "M") + X(p.t).toFixed(2) + " " + Y(p.v).toFixed(2)).join(" ");
+  const sma50Path = smaLine(sma50V), sma200Path = smaLine(sma200V);
   const area = line + ` L ${X(series[series.length - 1].t).toFixed(2)} ${P.t + ih} L ${X(series[0].t).toFixed(2)} ${P.t + ih} Z`;
 
   const yT = niceTicks(yMin, yMax, 5);
@@ -175,6 +218,8 @@ function priceChart(el, series, opts) {
       </linearGradient></defs>
       ${bands}${grid}
       <path d="${area}" fill="url(#pg)"/>
+      ${sma200Path ? `<path d="${sma200Path}" fill="none" stroke="var(--warn)" stroke-width="1.4" stroke-linejoin="round" opacity=".8"/>` : ""}
+      ${sma50Path ? `<path d="${sma50Path}" fill="none" stroke="var(--ink-3)" stroke-width="1.4" stroke-linejoin="round" opacity=".9"/>` : ""}
       <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
       <circle cx="${X(last.t).toFixed(1)}" cy="${Y(last.c).toFixed(1)}" r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>
       ${xLab.join("")}
@@ -188,6 +233,8 @@ function priceChart(el, series, opts) {
   </div>
   <div class="legend">
     <span><i style="background:var(--accent)"></i>Kurs${currency ? " in " + esc(currency) : ""}</span>
+    ${sma50Path ? `<span><i style="background:var(--ink-3)"></i>SMA 50 Wochen — Kontext, kein Signal</span>` : ""}
+    ${sma200Path ? `<span><i style="background:var(--warn)"></i>SMA 200 Wochen — Kontext, kein Signal</span>` : ""}
     ${episodes.length ? `<span><i class="sw-band" style="background:var(--ghost);opacity:.45"></i>Schockphase (Rückgang ≥ 18 % vom Hoch bis zur Erholung)</span>` : ""}
   </div>`;
 

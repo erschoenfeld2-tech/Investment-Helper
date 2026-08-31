@@ -120,6 +120,27 @@ Die Größe des `viewBox` richtet sich nach der Breite des Containers, damit
 Schriftgrößen im SVG bei jeder Fenstergröße ungefähr 1:1 gerendert werden. Bei einem
 festen `viewBox` wären die Achsenbeschriftungen auf dem Telefon unlesbar klein geworden.
 
+## Baustein 5: Bewertung, ohne einen einzigen zusätzlichen Abruf
+
+KGV, KUV, EV/EBITDA, Dividendenrendite und Ausschüttungsquote stecken bereits in der
+`OVERVIEW`-Antwort, die Baustein 2 für US-Notierungen ohnehin lädt — `overviewFrom()`
+in der Edge Function reicht sie seit Baustein 5 einfach mit durch, statt sie zu
+verwerfen. Alpha Vantage liefert fehlende Werte als Text `"None"` statt als JSON-Null;
+`numOrNull()` filtert das serverseitig, damit das Frontend nicht mit `NaN` rechnet.
+
+SMA (50/200 Wochen) und RSI (14 Wochen) brauchen ebenfalls keinen eigenen Abruf: Beide
+lassen sich vollständig aus der Kursreihe berechnen, die für Baustein 1 sowieso geladen
+ist (`computeSma`, `computeRsi` in `src/app.js`). Das ist eine bewusste Abweichung vom
+üblichen Ansatz über Alpha Vantages `SMA`/`RSI`-Endpunkte — spart Budget und eine
+Sekunde Rundlaufzeit, ohne an Genauigkeit zu verlieren, weil die zugrundeliegenden
+Kurse ohnehin dieselben sind. Der RSI ist eine vereinfachte Variante (gleitender
+Mittelwert der letzten 14 Wochenveränderungen, nicht Wilders geglätteter RSI) — für
+einen Kontextwert genau genug.
+
+Beide Werte sind im Chart bzw. in Baustein 5 ausdrücklich als „Kontext, kein Signal"
+beschriftet. Das ist keine Förmlichkeit: Kurslots Grundprinzip ist, nichts zu zeigen,
+das wie eine Prognose aussieht, und ein SMA-Crossover wird landläufig genau so gelesen.
+
 ## Grenzen, die bewusst so stehen
 
 * **Wochenschlusskurse, nicht Tageskurse.** Für Schockphasen über Jahre ist das die
@@ -130,3 +151,8 @@ festen `viewBox` wären die Achsenbeschriftungen auf dem Telefon unlesbar klein 
   blieben normale Rücksetzer unsichtbar. Der Wert steht in `src/app.js` als `THRESHOLD`.
 * **Kryptowährungen** werden gegen eine feste Liste erkannt und in EUR geladen. Wer eine
   seltene Münze braucht, muss die Liste in `src/app2.js` ergänzen.
+* **Bewertungskennzahlen nur für US-Notierungen**, aus demselben Grund wie Baustein 2:
+  `OVERVIEW` liefert für Symbole mit Börsensuffix ein leeres `{}`.
+* **KGV ist ein Momentaufnahme-Wert**, kein Vergleich gegen die eigene Historie. Ein
+  5-Jahres-Median bräuchte mehr Ergebnishistorie, als Alpha Vantages `EARNINGS`
+  kostenlos hergibt (8 Quartale, gut 2 Jahre).

@@ -246,10 +246,18 @@ function renderReport() {
       <div id="chart2"></div>
       ${renderEpisodes()}
     </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><span class="eyebrow">Baustein 5</span><h2>Bewertung</h2></div>
+      </div>
+      ${renderValuation()}
+    </section>
   </div>
   ${renderFoot()}`;
 
-  priceChart(main.querySelector("#chart1"), view, { episodes, currency: cur });
+  const sma50 = computeSma(series, 50), sma200 = computeSma(series, 200);
+  priceChart(main.querySelector("#chart1"), view, { episodes, currency: cur, sma50, sma200 });
   analogyChart(main.querySelector("#chart2"), episodes);
   const vb = main.querySelector("#volbars");
   if (vb) volBars(vb, vols);
@@ -356,6 +364,67 @@ function summaryLine(done, med) {
   if (done.length === 1) return `<p class="card-note" style="margin:16px 0 0">Die einzige abgeschlossene Phase brauchte <b>${fmtDuration(done[0].toRecover)}</b> vom Hoch zurück zum Hoch. Eine einzelne Erholung ist kein Muster.</p>`;
   const lo = Math.min(...done.map(x => x.toRecover)), hi = Math.max(...done.map(x => x.toRecover));
   return `<p class="card-note" style="margin:16px 0 0">Von ${done.length} abgeschlossenen Phasen brauchte die mittlere <b>${fmtDuration(med)}</b> vom Hoch zurück zum Hoch, die schnellste ${fmtDuration(lo)}, die längste ${fmtDuration(hi)}.</p>`;
+}
+
+/* -------------------------- Baustein 5: Bewertung -------------------------
+   KGV, KUV, EV/EBITDA, Dividendenrendite und Ausschüttungsquote kommen aus
+   OVERVIEW, das für US-Notierungen ohnehin schon für Baustein 2 geladen wird
+   — kein zusätzlicher Abruf. RSI ist rein aus der bereits geladenen
+   Kursreihe gerechnet (siehe computeRsi in app.js), ebenfalls ohne
+   Mehrkosten. Beides ist Kontext zur aktuellen Einordnung, keine
+   Kaufempfehlung und keine Prognose — deshalb neutrale Punkte statt Ampel,
+   außer beim RSI an den Rändern, wo "eher über-/verkauft" zumindest eine
+   Beobachtung ist. */
+function renderValuation() {
+  const o = state.overview;
+  const t = state.sym.type;
+  const rsi = computeRsi(state.series, 14);
+
+  if (!o) {
+    const note = t === "Krypto"
+      ? "Kryptowährungen haben keinen Gewinn oder Umsatz, gegen den sich der Kurs bewertungsmäßig setzen ließe."
+      : t === "ETF"
+        ? "Ein Fonds hat keine eigenen Bewertungskennzahlen wie KGV oder KUV, sondern spiegelt die seiner Bestandteile."
+        : "Alpha Vantage führt Fundamentaldaten nur für US-Notierungen. Für ein Papier mit Börsensuffix wie diesem fragt Kurslot sie gar nicht erst ab.";
+    const rsiRow = renderRsiRow(rsi);
+    return `<p class="card-note">${note}</p>${rsiRow ? `<div class="rows">${rsiRow}</div>` : ""}`;
+  }
+
+  const { peRatio: pe, priceToSales: ps, evToEbitda: evEbitda, dividendYield: divYield,
+    dividendPerShare: dps, eps } = o;
+  const payout = (dps != null && eps != null && eps > 0 && dps > 0) ? (dps / eps) * 100 : null;
+
+  const row = (label, sub, value) => `<div class="row">
+    <span class="dot n"></span>
+    <div class="lab"><b>${esc(label)}</b><span>${esc(sub)}</span></div>
+    <div class="num">${value}</div>
+  </div>`;
+
+  const rows = [
+    pe != null && pe > 0 ? row("KGV", "Kurs je Aktie zu Gewinn je Aktie", fmt(pe, 1)) : "",
+    ps != null && ps > 0 ? row("KUV", "Kurs zu Umsatz je Aktie (TTM)", fmt(ps, 1)) : "",
+    evEbitda != null && evEbitda > 0 ? row("EV/EBITDA", "Unternehmenswert zu operativem Ergebnis", fmt(evEbitda, 1)) : "",
+    divYield != null && divYield > 0 ? row("Dividendenrendite", "Ausschüttung zum aktuellen Kurs", fmt(divYield * 100, 1) + " %") : "",
+    payout != null ? row("Ausschüttungsquote", "Anteil des Gewinns, der ausgeschüttet wird", fmt(payout, 0) + " %") : "",
+  ].join("") + renderRsiRow(rsi);
+
+  if (!rows) {
+    return `<p class="card-note">Für dieses Symbol liefert Alpha Vantage keine der üblichen Bewertungskennzahlen (etwa bei Verlust oder fehlender Dividende).</p>`;
+  }
+
+  return `<p class="card-note">Wie der Markt das Unternehmen aktuell einpreist — keine Aussage, ob das gerechtfertigt ist oder sich ändert.</p>
+    <div class="rows">${rows}</div>`;
+}
+
+function renderRsiRow(rsi) {
+  if (rsi == null) return "";
+  const label = rsi >= 70 ? "eher überkauft" : rsi <= 30 ? "eher überverkauft" : "neutral";
+  const cls = rsi >= 70 || rsi <= 30 ? "y" : "n";
+  return `<div class="row">
+    <span class="dot ${cls}"></span>
+    <div class="lab"><b>RSI (14 Wochen)</b><span>Kontext aus dem Kursverlauf, kein Handelssignal</span></div>
+    <div class="num">${fmt(rsi, 0)} <span style="color:var(--ink-2)">· ${esc(label)}</span></div>
+  </div>`;
 }
 
 function renderFoot() {
