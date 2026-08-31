@@ -1,6 +1,9 @@
 node_modules/
 package-lock.json
 
+# lokale Werkzeug-Konfiguration (Claude Code), nicht Teil des Projekts
+.claude/
+
 # Screenshots aus dem Sichtprüfungslauf
 test/*.png
 test/page.html
