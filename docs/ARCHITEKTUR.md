@@ -29,6 +29,26 @@ Alles Weitere — Schockphasen, Erholungsdauern, Volatilität, Jahresrenditen �
 Frontend aus der Kursreihe. Es gibt keinen zweiten Weg, auf dem Zahlen in die Seite
 kommen.
 
+## Zwei Anbieter für Kursreihen: Twelve Data zuerst, Alpha Vantage als Fallback
+
+Alpha Vantages 25 Abrufe/Tag sind knapp bemessen, und `series` wird bei jeder
+Symbolansicht mindestens einmal gebraucht — der größte Einzelposten im Budget.
+Twelve Data bietet im Gratis-Tarif 800 Abrufe/Tag, deckt dort aber nur
+US-Notierungen ohne Börsensuffix ab (kein XETRA, keine Krypto).
+
+Für ein Symbol ohne Punkt im Kürzel (`AAPL`, nicht `BMW.DEX`) und ohne
+Krypto-Kennzeichnung versucht die Funktion deshalb zuerst Twelve Data. Schlägt
+das fehl — kein Schlüssel hinterlegt, Tagesbudget leer, Symbol dort unbekannt —
+fällt sie automatisch und unbemerkt auf Alpha Vantage zurück. Jeder Anbieter
+cacht unter einem eigenen `kind` (`series_td` bzw. `series`), damit sich die
+beiden Rohantworten nicht überschreiben; die Normalisierung zu `[{t,c}, …]`
+läuft danach über den zum jeweiligen Anbieter passenden Parser.
+
+Earnings und Overview bleiben ausschließlich bei Alpha Vantage — Twelve Data
+führt Analystenschätzungen und Firmenprofile erst ab einem bezahlten Tarif.
+Börsensuffixe und Krypto sparen sich den Twelve-Data-Versuch von vornherein,
+weil er dort ohnehin scheitern würde.
+
 ## Warum roh zwischenspeichern
 
 `kurslot.cache` hält die unveränderte Antwort von Alpha Vantage, nicht das normalisierte
@@ -52,11 +72,15 @@ Edge Function.
 
 Eine Edge Function kann in mehreren Instanzen gleichzeitig laufen; ein Zähler im
 Arbeitsspeicher wäre wertlos. `kurslot_spend()` erhöht deshalb in einer einzigen
-Anweisung und nur dann, wenn noch Budget übrig ist:
+Anweisung und nur dann, wenn noch Budget übrig ist. Seit es zwei Anbieter gibt,
+trägt `kurslot.api_usage` zusätzlich `provider` als Teil des Primärschlüssels
+(`day, provider`) — Alpha Vantage und Twelve Data führen getrennte Konten,
+sonst würde Twelve Datas großzügigeres Kontingent das knappe von Alpha Vantage
+verdecken oder umgekehrt:
 
 ```sql
-insert into kurslot.api_usage (day, calls) values (heute, 1)
-on conflict (day) do update set calls = calls + 1 where calls < p_limit
+insert into kurslot.api_usage (day, provider, calls) values (heute, 'alphavantage', 1)
+on conflict (day, provider) do update set calls = calls + 1 where calls < p_limit
 returning calls;
 ```
 

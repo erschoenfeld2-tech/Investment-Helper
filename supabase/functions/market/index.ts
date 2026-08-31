@@ -1,11 +1,22 @@
 // Kurslot — Marktdaten-Proxy
 //
 // Warum es diese Funktion gibt:
-//  1. Der Alpha-Vantage-Schlüssel bleibt auf dem Server, nie im Browser.
-//  2. Der Gratis-Tarif erlaubt 25 Abrufe pro Tag. Jede Antwort landet roh in
-//     kurslot.cache; ein zweiter Blick auf dasselbe Symbol kostet nichts.
-//  3. Ist das Tagesbudget aufgebraucht, liefern wir lieber veraltete Daten
+//  1. API-Schlüssel bleiben auf dem Server, nie im Browser.
+//  2. Alpha Vantage erlaubt im Gratis-Tarif nur 25 Abrufe pro Tag. Jede
+//     Antwort landet roh in kurslot.cache; ein zweiter Blick auf dasselbe
+//     Symbol kostet nichts.
+//  3. Ist ein Tagesbudget aufgebraucht, liefern wir lieber veraltete Daten
 //     (mit Kennzeichnung) als gar keine.
+//
+// Zwei Anbieter, getrennte Budgets: Für US-Aktien/ETFs ohne Börsensuffix
+// (AAPL, MSFT, …) wird zuerst Twelve Data versucht (800 Abrufe/Tag statt
+// Alpha Vantages 25). Scheitert das — kein Schlüssel, Budget leer, Twelve
+// Data kennt das Symbol nicht — fällt die Funktion automatisch auf Alpha
+// Vantage zurück. Börsensuffixe (BMW.DEX, ASML.AMS, …) und Krypto laufen
+// unverändert über Alpha Vantage, weil Twelve Datas Gratis-Tarif nur
+// US-Notierungen abdeckt. Earnings und Overview bleiben ebenfalls bei
+// Alpha Vantage — Twelve Data führt Fundamentaldaten erst ab einem
+// bezahlten Tarif.
 //
 // Roh wird zwischengespeichert, normalisiert wird beim Ausliefern — so lässt
 // sich ein Parser-Fehler beheben, ohne erneut Abrufe zu verbrauchen.
@@ -14,12 +25,17 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const AV = "https://www.alphavantage.co/query";
-const DAILY_LIMIT = 25;
+const TD = "https://api.twelvedata.com/time_series";
+
+type Provider = { name: string; label: string; dailyLimit: number; minIntervalMs: number };
+const AV_PROVIDER: Provider = { name: "alphavantage", label: "Alpha Vantage", dailyLimit: 25, minIntervalMs: 1200 };
+const TD_PROVIDER: Provider = { name: "twelvedata", label: "Twelve Data", dailyLimit: 800, minIntervalMs: 7600 };
 
 /** Wie lange eine Antwort als frisch gilt (Millisekunden). */
 const TTL: Record<string, number> = {
   search: 30 * 864e5,
   series: 2 * 864e5,
+  series_td: 2 * 864e5,
   crypto: 1 * 864e5,
   earnings: 20 * 864e5,
   overview: 20 * 864e5,
@@ -62,14 +78,16 @@ class AvError extends Error {
 }
 
 /* ----------------------------- Schlüssel -------------------------------- */
-let keyCache: string | null = null;
-async function apiKey(): Promise<string | null> {
-  if (keyCache) return keyCache;
-  const env = Deno.env.get("ALPHAVANTAGE_KEY");
-  if (env) return (keyCache = env);
-  const v = await rpc<string | null>("kurslot_secret", { p_name: "alphavantage_key" });
-  return (keyCache = v ?? null);
+const keyCache: Record<string, string | null> = {};
+async function providerKey(secretName: string, envName: string): Promise<string | null> {
+  if (secretName in keyCache) return keyCache[secretName];
+  const env = Deno.env.get(envName);
+  if (env) return (keyCache[secretName] = env);
+  const v = await rpc<string | null>("kurslot_secret", { p_name: secretName });
+  return (keyCache[secretName] = v ?? null);
 }
+const avKey = () => providerKey("alphavantage_key", "ALPHAVANTAGE_KEY");
+const tdKey = () => providerKey("twelvedata_key", "TWELVEDATA_KEY");
 
 /* ------------------------------- Cache ---------------------------------- */
 type Cached = { payload: unknown; fetched_at: string } | null;
@@ -83,35 +101,43 @@ async function writeCache(kind: string, key: string, payload: unknown) {
   await rpc("kurslot_put", { p_kind: kind, p_key: key, p_payload: payload });
 }
 
-/** Erhöht den Tageszähler. false = Budget erschöpft (nicht: Fehler). */
-async function spend(): Promise<boolean> {
-  const calls = await rpc<number | null>("kurslot_spend", { p_limit: DAILY_LIMIT });
+/** Erhöht den Tageszähler des Anbieters. false = dessen Budget erschöpft. */
+async function spend(p: Provider): Promise<boolean> {
+  const calls = await rpc<number | null>("kurslot_spend", { p_limit: p.dailyLimit, p_provider: p.name });
   return calls !== null;
 }
-
-async function usage() {
+async function refund(p: Provider) {
+  await rpc("kurslot_refund", { p_provider: p.name }).catch(() => {});
+}
+async function usageOf(p: Provider) {
   try {
-    return { used: await rpc<number>("kurslot_usage"), limit: DAILY_LIMIT };
+    return { used: await rpc<number>("kurslot_usage", { p_provider: p.name }), limit: p.dailyLimit };
   } catch {
-    return { used: null, limit: DAILY_LIMIT };
+    return { used: null, limit: p.dailyLimit };
   }
 }
-
-/* --------------------------- Alpha Vantage ------------------------------ */
-/** Alpha Vantage lässt im Gratis-Tarif nur einen Abruf je Sekunde zu.
- *  Wir halten den Abstand selbst ein, statt in die Bremse zu laufen. */
-let lastCall = 0;
-async function throttle() {
-  const wait = 1200 - (Date.now() - lastCall);
-  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-  lastCall = Date.now();
+async function usageAll() {
+  const [alphavantage, twelvedata] = await Promise.all([usageOf(AV_PROVIDER), usageOf(TD_PROVIDER)]);
+  return { alphavantage, twelvedata };
 }
 
+/* ----------------------------- Drosselung -------------------------------- */
+/** Beide Anbieter lassen im Gratis-Tarif nur begrenzt Abrufe pro Zeiteinheit
+ *  zu. Wir halten den Abstand je Anbieter selbst ein, statt in die Bremse
+ *  zu laufen (ein warmer Function-Prozess merkt sich das zwischen Aufrufen). */
+const lastCall: Record<string, number> = {};
+async function throttle(p: Provider) {
+  const wait = p.minIntervalMs - (Date.now() - (lastCall[p.name] ?? 0));
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastCall[p.name] = Date.now();
+}
+
+/* --------------------------- Alpha Vantage ------------------------------- */
 async function callAv(params: Record<string, string>): Promise<unknown> {
-  const key = await apiKey();
+  const key = await avKey();
   if (!key) throw new AvError("no_key", "Es ist kein Alpha-Vantage-Schlüssel hinterlegt.");
 
-  await throttle();
+  await throttle(AV_PROVIDER);
   const url = new URL(AV);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   url.searchParams.set("apikey", key);
@@ -131,12 +157,41 @@ async function callAv(params: Record<string, string>): Promise<unknown> {
   return body;
 }
 
+/* ---------------------------- Twelve Data -------------------------------- */
+async function callTd(params: Record<string, string>): Promise<unknown> {
+  const key = await tdKey();
+  if (!key) throw new AvError("no_key", "Es ist kein Twelve-Data-Schlüssel hinterlegt.");
+
+  await throttle(TD_PROVIDER);
+  const url = new URL(TD);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  url.searchParams.set("apikey", key);
+
+  const res = await fetch(url);
+  const body = await res.json().catch(() => null);
+  if (!body || typeof body !== "object") throw new AvError("shape", "Antwort war kein JSON-Objekt.");
+
+  const rec = body as Record<string, unknown>;
+  if (rec.status === "error" || rec.code) {
+    const msg = String(rec.message ?? "Twelve Data meldet einen Fehler.");
+    const limited = Number(rec.code) === 429 || /run out of api credits|limit/i.test(msg);
+    throw new AvError(limited ? "rate_limited" : "api", msg);
+  }
+  return body;
+}
+
 /**
- * Holt (kind, key) aus dem Cache oder frisch von Alpha Vantage.
+ * Holt (kind, key) bei einem Anbieter aus dem Cache oder frisch ab.
  * Bei erschöpftem Budget oder Fehler wird ein vorhandener alter Eintrag
  * zurückgegeben und als veraltet markiert.
  */
-async function fetchOrCache(kind: string, key: string, params: Record<string, string>) {
+async function fetchOrCache(
+  kind: string,
+  key: string,
+  provider: Provider,
+  hasKey: () => Promise<string | null>,
+  fetchRaw: () => Promise<unknown>,
+) {
   const hit = await readCache(kind, key);
   const age = hit ? Date.now() - new Date(hit.fetched_at).getTime() : Infinity;
   if (hit && age < (TTL[kind] ?? 864e5)) {
@@ -144,29 +199,29 @@ async function fetchOrCache(kind: string, key: string, params: Record<string, st
   }
 
   // Erst prüfen, ob überhaupt ein Abruf möglich ist — sonst zählt das Budget
-  // Anfragen mit, die Alpha Vantage nie erreicht haben.
-  if (!(await apiKey())) throw new AvError("no_key", "Es ist kein Alpha-Vantage-Schlüssel hinterlegt.");
+  // Anfragen mit, die den Anbieter nie erreicht haben.
+  if (!(await hasKey())) throw new AvError("no_key", `Es ist kein ${provider.label}-Schlüssel hinterlegt.`);
 
-  if (!(await spend())) {
+  if (!(await spend(provider))) {
     if (hit) return { payload: hit.payload, fetchedAt: hit.fetched_at, stale: true, reason: "budget" };
-    throw new AvError("budget_exhausted", `Das Tagesbudget von ${DAILY_LIMIT} Abrufen ist aufgebraucht.`);
+    throw new AvError("budget_exhausted", `Das Tagesbudget von ${provider.dailyLimit} Abrufen bei ${provider.label} ist aufgebraucht.`);
   }
 
   try {
     let fresh: unknown;
     try {
-      fresh = await callAv(params);
+      fresh = await fetchRaw();
     } catch (err) {
       // Sekundenbremse: einmal nachfassen, statt den Abruf zu verlieren.
       if ((err as AvError).code !== "rate_limited") throw err;
       await new Promise((r) => setTimeout(r, 1500));
-      fresh = await callAv(params);
+      fresh = await fetchRaw();
     }
     await writeCache(kind, key, fresh);
     return { payload: fresh, fetchedAt: new Date().toISOString(), stale: false };
   } catch (err) {
     // Ohne Daten kein verbrauchter Abruf.
-    await rpc("kurslot_refund").catch(() => {});
+    await refund(provider);
     if (hit) return { payload: hit.payload, fetchedAt: hit.fetched_at, stale: true, reason: (err as AvError).code };
     throw err;
   }
@@ -185,6 +240,16 @@ function seriesFrom(raw: unknown): { t: string; c: number }[] {
     const c = ck ? parseFloat(row[ck]) : NaN;
     if (Number.isFinite(c) && c > 0) out.push({ t: date.slice(0, 10), c });
   }
+  out.sort((a, b) => (a.t < b.t ? -1 : 1));
+  if (out.length < 20) throw new AvError("thin", "Für dieses Symbol gibt es zu wenig Kurshistorie.");
+  return out;
+}
+
+function seriesFromTd(raw: unknown): { t: string; c: number }[] {
+  const rows = ((raw as Record<string, unknown>).values ?? []) as Record<string, string>[];
+  const out = rows
+    .map((r) => ({ t: String(r.datetime).slice(0, 10), c: parseFloat(r.close) }))
+    .filter((p) => Number.isFinite(p.c) && p.c > 0);
   out.sort((a, b) => (a.t < b.t ? -1 : 1));
   if (out.length < 20) throw new AvError("thin", "Für dieses Symbol gibt es zu wenig Kurshistorie.");
   return out;
@@ -246,33 +311,57 @@ Deno.serve(async (req) => {
   const market = clean(url.searchParams.get("market") ?? "EUR") || "EUR";
 
   try {
-    if (op === "budget") return json(await usage());
+    if (op === "budget") return json(await usageAll());
 
     if (op === "search") {
       if (q.length < 2) return fail("bad_request", "Suchbegriff ist zu kurz.");
-      const r = await fetchOrCache("search", q.toLowerCase(), { function: "SYMBOL_SEARCH", keywords: q });
-      return json({ data: matchesFrom(r.payload), fetchedAt: r.fetchedAt, stale: r.stale, budget: await usage() });
+      const r = await fetchOrCache("search", q.toLowerCase(), AV_PROVIDER, avKey,
+        () => callAv({ function: "SYMBOL_SEARCH", keywords: q }));
+      return json({ data: matchesFrom(r.payload), fetchedAt: r.fetchedAt, stale: r.stale, budget: await usageAll() });
     }
 
     if (op === "series") {
       if (!symbol) return fail("bad_request", "Es fehlt das Symbol.");
       const isCrypto = url.searchParams.get("kind") === "crypto";
-      const r = isCrypto
-        ? await fetchOrCache("crypto", `${symbol}:${market}`, { function: "DIGITAL_CURRENCY_WEEKLY", symbol, market })
-        : await fetchOrCache("series", symbol, { function: "TIME_SERIES_WEEKLY_ADJUSTED", symbol });
-      return json({ data: seriesFrom(r.payload), fetchedAt: r.fetchedAt, stale: r.stale, budget: await usage() });
+      // Twelve Data deckt im Gratis-Tarif nur US-Notierungen ab: kein
+      // Börsensuffix, keine Krypto. Alles andere geht direkt zu Alpha
+      // Vantage, um den unnötigen Twelve-Data-Versuch zu sparen.
+      const tryTd = !isCrypto && !symbol.includes(".");
+
+      let r: { payload: unknown; fetchedAt: string; stale: boolean } | undefined;
+      let parser = seriesFrom;
+      if (tryTd) {
+        try {
+          r = await fetchOrCache("series_td", symbol, TD_PROVIDER, tdKey,
+            () => callTd({ symbol, interval: "1week", outputsize: "5000" }));
+          parser = seriesFromTd;
+        } catch {
+          r = undefined; // Twelve Data kennt das Symbol nicht, Budget leer, o.ä. — auf Alpha Vantage ausweichen.
+        }
+      }
+      if (!r) {
+        r = isCrypto
+          ? await fetchOrCache("crypto", `${symbol}:${market}`, AV_PROVIDER, avKey,
+              () => callAv({ function: "DIGITAL_CURRENCY_WEEKLY", symbol, market }))
+          : await fetchOrCache("series", symbol, AV_PROVIDER, avKey,
+              () => callAv({ function: "TIME_SERIES_WEEKLY_ADJUSTED", symbol }));
+        parser = seriesFrom;
+      }
+      return json({ data: parser(r.payload), fetchedAt: r.fetchedAt, stale: r.stale, budget: await usageAll() });
     }
 
     if (op === "earnings") {
       if (!symbol) return fail("bad_request", "Es fehlt das Symbol.");
-      const r = await fetchOrCache("earnings", symbol, { function: "EARNINGS", symbol });
-      return json({ data: earningsFrom(r.payload), fetchedAt: r.fetchedAt, stale: r.stale, budget: await usage() });
+      const r = await fetchOrCache("earnings", symbol, AV_PROVIDER, avKey,
+        () => callAv({ function: "EARNINGS", symbol }));
+      return json({ data: earningsFrom(r.payload), fetchedAt: r.fetchedAt, stale: r.stale, budget: await usageAll() });
     }
 
     if (op === "overview") {
       if (!symbol) return fail("bad_request", "Es fehlt das Symbol.");
-      const r = await fetchOrCache("overview", symbol, { function: "OVERVIEW", symbol });
-      return json({ data: overviewFrom(r.payload), fetchedAt: r.fetchedAt, stale: r.stale, budget: await usage() });
+      const r = await fetchOrCache("overview", symbol, AV_PROVIDER, avKey,
+        () => callAv({ function: "OVERVIEW", symbol }));
+      return json({ data: overviewFrom(r.payload), fetchedAt: r.fetchedAt, stale: r.stale, budget: await usageAll() });
     }
 
     return fail("bad_request", `Unbekannte Operation: ${op || "(keine)"}`);
@@ -281,6 +370,6 @@ Deno.serve(async (req) => {
     const status = e.code === "budget_exhausted" || e.code === "rate_limited" ? 429
       : e.code === "no_key" ? 503
       : e.code === "db" ? 500 : 502;
-    return fail(e.code ?? "unknown", e.message ?? "Unbekannter Fehler", status, { budget: await usage() });
+    return fail(e.code ?? "unknown", e.message ?? "Unbekannter Fehler", status, { budget: await usageAll() });
   }
 });

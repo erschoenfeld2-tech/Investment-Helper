@@ -147,7 +147,7 @@ function renderBusy() {
 function renderError() {
   const e = state.err;
   const fixes = {
-    budget_exhausted: `Das Tageskontingent bei Alpha Vantage ist aufgebraucht (${state.budget?.limit ?? 25} Abrufe). Symbole, die heute schon abgerufen wurden, funktionieren weiterhin — für neue heißt es warten bis morgen. Um Mitternacht UTC setzt der Zähler zurück.`,
+    budget_exhausted: `${e.msg || "Das Tageskontingent ist aufgebraucht."} Symbole, die heute schon abgerufen wurden, funktionieren weiterhin — für neue heißt es warten bis morgen. Um Mitternacht UTC setzt der Zähler zurück.`,
     rate_limited: "Alpha Vantage lässt im Gratis-Tarif nur einen Abruf pro Sekunde zu und hat gebremst. Warte einen Moment und versuch es erneut — dieser Fehlversuch zählt nicht gegen dein Tagesbudget.",
     no_key: "Auf dem Server ist kein Alpha-Vantage-Schlüssel hinterlegt. Ohne ihn kann Kurslot keine Kurse laden.",
     db: "Die Datenbank hinter Kurslot antwortet nicht wie erwartet. Das ist ein Fehler auf Serverseite, keiner deiner Eingabe.",
@@ -361,15 +361,22 @@ function summaryLine(done, med) {
 function renderFoot() {
   return `<footer class="foot">
     <p><b>Keine Anlageberatung.</b> Kurslot zeigt vergangene Kurse und daraus gemessene Kennzahlen. Es gibt keine Empfehlung ab, prognostiziert keinen Kurs und kennt deine Situation nicht. Vergangene Erholungen sind kein Versprechen für kommende.</p>
-    <p style="text-align:right">Kurse und Fundamentaldaten: Alpha Vantage,<br>Wochenschlusskurse, verzögert.${budgetLine()}</p>
+    <p style="text-align:right">Kurse und Fundamentaldaten: Alpha Vantage & Twelve Data,<br>Wochenschlusskurse, verzögert.${budgetLine()}</p>
   </footer>`;
 }
 
 function budgetLine() {
   const b = state.budget;
-  if (!b || b.used == null) return "";
-  const left = Math.max(0, b.limit - b.used);
-  return `<br><span class="mono" style="font-size:11px">Heute noch ${left} von ${b.limit} Abrufen frei</span>`;
+  if (!b) return "";
+  const parts = [];
+  if (b.alphavantage?.used != null) {
+    parts.push(`Alpha Vantage ${Math.max(0, b.alphavantage.limit - b.alphavantage.used)}/${b.alphavantage.limit}`);
+  }
+  if (b.twelvedata?.used != null) {
+    parts.push(`Twelve Data ${Math.max(0, b.twelvedata.limit - b.twelvedata.used)}/${b.twelvedata.limit}`);
+  }
+  if (!parts.length) return "";
+  return `<br><span class="mono" style="font-size:11px">Heute noch frei: ${parts.join(" · ")}</span>`;
 }
 
 /** Kleines Band über dem Bericht, wenn die Zahlen aus dem Zwischenspeicher kommen. */

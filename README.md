@@ -29,33 +29,42 @@ laufende Phase gelegt. Eine Analogie, ausdrücklich keine Prognose.
 ```
 Browser (index.html — eine Datei, kein Framework, kein Build zur Laufzeit)
    │
-   └─ fetch → Supabase Edge Function "market"      ← hier liegt der API-Schlüssel
-                 └─ Cache in Postgres (Schema kurslot)
-                       └─ Alpha Vantage (nur bei Cache-Miss)
+   └─ fetch → Supabase Edge Function "market"      ← hier liegen die API-Schlüssel
+                 ├─ Cache in Postgres (Schema kurslot)
+                 ├─ Twelve Data (Kursreihen, nur US-Symbole ohne Börsensuffix)
+                 └─ Alpha Vantage (alles andere + Fallback, wenn Twelve Data nicht greift)
 ```
 
 Warum der Umweg über eine eigene Funktion:
 
-1. **Der Alpha-Vantage-Schlüssel bleibt auf dem Server.** Im Browser steht nur der
+1. **Die API-Schlüssel bleiben auf dem Server.** Im Browser steht nur der
    öffentliche Supabase-Schlüssel, der genau dafür gedacht ist.
-2. **Der Gratis-Tarif erlaubt 25 Abrufe pro Tag.** Jede Antwort wird roh
-   zwischengespeichert; ein zweiter Blick auf dasselbe Symbol kostet nichts.
+2. **Alpha Vantages Gratis-Tarif erlaubt nur 25 Abrufe pro Tag.** Jede Antwort wird
+   roh zwischengespeichert; ein zweiter Blick auf dasselbe Symbol kostet nichts. Für
+   US-Symbole ohne Börsensuffix übernimmt zusätzlich Twelve Data (800 Abrufe/Tag) den
+   größten Posten — die Kursreihe —, wodurch Alpha Vantage vor allem für Earnings,
+   Overview und internationale Titel übrigbleibt.
 3. **Zwischengespeichert wird roh, normalisiert wird beim Ausliefern.** So lässt sich ein
    Fehler im Parser beheben, ohne erneut Abrufe zu verbrauchen.
 
-### Gemessene Grenzen von Alpha Vantage
+### Gemessene Grenzen der Datenquellen
 
-| Grenze | Wert | Umgang im Code |
-|---|---|---|
-| Abrufe pro Tag | 25 | Zähler in `kurslot.api_usage`, Restbudget steht im Fuß der Seite |
-| Abrufe pro Sekunde | 1 | Edge Function drosselt auf 1,2 s und fasst bei Bremsung einmal nach |
-| Fehlversuche | — | werden zurückgebucht (`kurslot_refund`) und belasten das Budget nicht |
-| Fundamentaldaten | **nur US-Notierungen** | `EARNINGS`/`OVERVIEW` liefern für `BMW.DEX` ein leeres `{}`. Das Frontend fragt sie für Symbole mit Börsensuffix gar nicht erst ab. |
+| Anbieter | Abrufe/Tag | Deckt ab | Umgang im Code |
+|---|---|---|---|
+| Twelve Data | 800 | Kursreihen, nur US-Symbole ohne Börsensuffix, keine Krypto | Wird zuerst versucht; Fehlschlag fällt automatisch auf Alpha Vantage zurück |
+| Alpha Vantage | 25 | Alles andere: Kursreihen mit Börsensuffix, Krypto, Earnings, Overview, Suche | Zähler in `kurslot.api_usage` je Anbieter, Restbudget steht im Fuß der Seite |
+
+Beide Zähler laufen getrennt (`kurslot.api_usage`, Spalte `provider`) und werden bei
+Fehlversuchen zurückgebucht (`kurslot_refund`), damit Bremsungen oder unbekannte Symbole
+kein Budget kosten. Fundamentaldaten (`EARNINGS`/`OVERVIEW`) liefern bei Alpha Vantage für
+`BMW.DEX` ein leeres `{}` — das Frontend fragt sie für Symbole mit Börsensuffix gar nicht
+erst ab.
 
 Folge für deutsche Papiere: Baustein 2 entfällt, stattdessen stehen dort die
 Jahresrenditen. Wer Erwartung gegen Ist sehen will, sucht dieselbe Firma unter ihrer
-US-Notierung — BMW etwa als `BMWYY`. Ein deutsches Symbol kostet dadurch **einen** Abruf
-statt drei.
+US-Notierung — BMW etwa als `BMWYY`. Ein deutsches Symbol kostet dadurch **einen** Alpha-
+Vantage-Abruf statt drei, ein US-Symbol in der Regel **keinen einzigen** (Kursreihe über
+Twelve Data).
 
 ### Cache-Fristen
 
@@ -91,17 +100,20 @@ docs/ARCHITEKTUR.md            Datenfluss, Datenmodell, Entwurfsentscheidungen
 ## Einrichten
 
 Voraussetzungen: Python 3, Node 18+, ein Supabase-Projekt, ein Alpha-Vantage-Schlüssel
-(kostenlos unter <https://www.alphavantage.co/support/#api-key>).
+(kostenlos unter <https://www.alphavantage.co/support/#api-key>) und optional ein
+Twelve-Data-Schlüssel (kostenlos unter <https://twelvedata.com/pricing>, Basic-Plan) —
+ohne ihn läuft alles weiter, nur eben komplett über Alpha Vantages engeres Kontingent.
 
 ```bash
 # 1  Datenbank aufsetzen
 supabase link --project-ref <PROJECT_REF>
 supabase db push
 
-# 2  Alpha-Vantage-Schlüssel hinterlegen (nur über service_role lesbar)
+# 2  Schlüssel hinterlegen (nur über service_role lesbar)
 #    im SQL-Editor von Supabase:
-#    insert into kurslot.app_secrets (name, value)
-#    values ('alphavantage_key', 'DEIN_SCHLUESSEL')
+#    insert into kurslot.app_secrets (name, value) values
+#      ('alphavantage_key', 'DEIN_ALPHA_VANTAGE_SCHLUESSEL'),
+#      ('twelvedata_key', 'DEIN_TWELVE_DATA_SCHLUESSEL')
 #    on conflict (name) do update set value = excluded.value, updated_at = now();
 
 # 3  Edge Functions deployen
@@ -121,8 +133,9 @@ Static Host ausliefern.
 
 ### Was **nicht** ins Repository gehört
 
-Der Alpha-Vantage-Schlüssel. Er liegt ausschließlich in `kurslot.app_secrets` und wird
-von der Edge Function über `kurslot_secret()` gelesen. Der Supabase-Schlüssel in
+Die Alpha-Vantage- und Twelve-Data-Schlüssel. Sie liegen ausschließlich in
+`kurslot.app_secrets` und werden von der Edge Function über `kurslot_secret()` gelesen.
+Der Supabase-Schlüssel in
 `src/app2.js` ist der *publishable key* — der ist zur Veröffentlichung bestimmt und
 gibt allein keinen Zugriff auf Daten.
 
