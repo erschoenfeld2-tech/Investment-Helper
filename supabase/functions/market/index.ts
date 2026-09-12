@@ -39,6 +39,7 @@ const TTL: Record<string, number> = {
   crypto: 1 * 864e5,
   earnings: 20 * 864e5,
   overview: 20 * 864e5,
+  movers: 7 * 864e5,
 };
 
 // Das Schema kurslot ist bewusst nicht über die REST-API freigegeben.
@@ -292,6 +293,23 @@ const numOrNull = (v: string | undefined): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+/** TOP_GAINERS_LOSERS liefert die größte Tagesbewegung am US-Markt (die
+ *  Kennzahl bleibt eine Tagesbewegung — nur der Abruf selbst ist 7 Tage
+ *  gecacht, siehe TTL.movers). change_percentage kommt als String wie
+ *  "18.4123%"; hier auf einen Bruch (0.184…) normalisiert. */
+function moversFrom(raw: unknown) {
+  const obj = raw as Record<string, Record<string, string>[]>;
+  const parse = (rows: Record<string, string>[] | undefined) =>
+    (rows ?? [])
+      .map((r) => ({
+        symbol: r.ticker ?? "",
+        pct: parseFloat(String(r.change_percentage ?? "").replace("%", "")) / 100,
+      }))
+      .filter((r) => r.symbol && Number.isFinite(r.pct))
+      .slice(0, 20);
+  return { gainers: parse(obj.top_gainers), losers: parse(obj.top_losers) };
+}
+
 function overviewFrom(raw: unknown) {
   const o = raw as Record<string, string>;
   if (!o?.Symbol) return null;
@@ -375,6 +393,14 @@ Deno.serve(async (req) => {
       const r = await fetchOrCache("overview", symbol, AV_PROVIDER, avKey,
         () => callAv({ function: "OVERVIEW", symbol }));
       return json({ data: overviewFrom(r.payload), fetchedAt: r.fetchedAt, stale: r.stale, budget: await usageAll() });
+    }
+
+    if (op === "movers") {
+      // Ein Abruf deckt den ganzen US-Markt ab, kein Symbol nötig — daher
+      // ein einziger, fester Cache-Schlüssel statt einem je Symbol.
+      const r = await fetchOrCache("movers", "us", AV_PROVIDER, avKey,
+        () => callAv({ function: "TOP_GAINERS_LOSERS" }));
+      return json({ data: moversFrom(r.payload), fetchedAt: r.fetchedAt, stale: r.stale, budget: await usageAll() });
     }
 
     return fail("bad_request", `Unbekannte Operation: ${op || "(keine)"}`);

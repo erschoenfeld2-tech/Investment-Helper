@@ -58,6 +58,21 @@ async function searchSymbols(q) {
   return (await call({ op: "search", q })).data;
 }
 
+/* Top-Mover für die Startseite: reine Fakten (größte Tagesbewegung am
+   US-Markt), kein Ranking nach Aussicht. Das Backend cached den Abruf 7
+   Tage, deshalb hier ebenfalls nur einmal pro Sitzung geladen. */
+let movers = null;
+async function loadMovers() {
+  if (movers) return movers;
+  try {
+    const r = await call({ op: "movers" });
+    movers = { gainers: r.data.gainers || [], losers: r.data.losers || [], fetchedAt: r.fetchedAt };
+  } catch {
+    movers = { gainers: [], losers: [], error: true };
+  }
+  return movers;
+}
+
 async function loadSeries(sym) {
   const p = sym.type === "Krypto"
     ? { op: "series", symbol: sym.symbol, kind: "crypto", market: "EUR" }
@@ -127,10 +142,63 @@ function renderEmpty() {
         <button data-ex="Bitcoin">Bitcoin</button>
       </div>`}
     </div>
+    ${off ? "" : `<section class="card" id="movers" style="margin-top:18px">
+      <div class="loading-line"><span class="spin"></span>Top-Mover werden geladen …</div>
+    </section>`}
     ${renderFoot()}
   </div>`;
   main.querySelectorAll("[data-ex]").forEach(b => b.addEventListener("click", () => {
     document.getElementById("q").value = b.dataset.ex; go(b.dataset.ex);
+  }));
+  if (!off) paintMovers();
+}
+
+/* --- Top-Mover (Startseite) -------------------------------------------- *
+ * Reine Fakten aus Alpha Vantages TOP_GAINERS_LOSERS: die größte
+ * Tagesbewegung am US-Markt, so wie sie beim letzten Abruf stand — das
+ * Backend hält das 7 Tage im Zwischenspeicher, daher "diese Woche" als
+ * Kartentitel, aber die Kennzahl selbst bleibt eine Tagesbewegung ("Stand
+ * [Datum]"). Kein Score, kein Ranking nach Aussicht: nur Symbol und
+ * tatsächliche Bewegung, zum Anklicken für die volle Auswertung.
+ */
+function moverRow(t) {
+  const up = t.pct >= 0;
+  return `<button class="mover-row" data-sym="${esc(t.symbol)}">
+      <span class="s">${esc(t.symbol)}</span>
+      <span class="d ${up ? "up" : "down"}">${pct(t.pct * 100)}</span>
+    </button>`;
+}
+
+async function paintMovers() {
+  const el = document.getElementById("movers");
+  if (!el) return; // Nutzer hat inzwischen etwas anderes geöffnet
+  const m = await loadMovers();
+  if (!document.getElementById("movers")) return; // Seite hat sich seither geändert
+
+  if (m.error || (!m.gainers.length && !m.losers.length)) {
+    el.innerHTML = `<h2>Top-Mover diese Woche</h2>
+      <p class="card-note">Gerade nicht verfügbar — das füllt sich beim nächsten Besuch wieder.</p>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <h2>Top-Mover diese Woche</h2>
+    <p class="card-note">Größte Tagesbewegung am US-Markt, Stand ${esc(dDE(m.fetchedAt))}.
+    Reine Kursbewegung — keine Einschätzung, keine Auswahl nach Aussicht.</p>
+    <div class="grid">
+      <div>
+        <h3 style="font-size:13px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px">Gewinner</h3>
+        <div class="mover-list">${m.gainers.slice(0, 5).map(moverRow).join("")}</div>
+      </div>
+      <div>
+        <h3 style="font-size:13px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px">Verlierer</h3>
+        <div class="mover-list">${m.losers.slice(0, 5).map(moverRow).join("")}</div>
+      </div>
+    </div>`;
+  el.querySelectorAll("[data-sym]").forEach(b => b.addEventListener("click", () => {
+    const t = b.dataset.sym;
+    document.getElementById("q").value = t;
+    load({ symbol: t, name: t, type: "Aktie", region: "United States", currency: "USD" });
   }));
 }
 
