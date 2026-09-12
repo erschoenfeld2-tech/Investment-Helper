@@ -321,6 +321,13 @@ function renderReport() {
       </div>
       ${renderValuation()}
     </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><span class="eyebrow">Baustein 6</span><h2>Analystenmeinungen</h2></div>
+      </div>
+      ${renderAnalysts()}
+    </section>
   </div>
   ${renderFoot()}`;
 
@@ -493,6 +500,61 @@ function renderRsiRow(rsi) {
     <div class="lab"><b>RSI (14 Wochen)</b><span>Kontext aus dem Kursverlauf, kein Handelssignal</span></div>
     <div class="num">${fmt(rsi, 0)} <span style="color:var(--ink-2)">· ${esc(label)}</span></div>
   </div>`;
+}
+
+/* -------------------- Baustein 6: Analystenmeinungen ----------------------
+   Reine Fremdmeinung, keine eigene Bewertung: die Ratingzahlen und das
+   mittlere Kursziel kommen aus OVERVIEW, das für US-Notierungen ohnehin
+   schon für Baustein 2 und 5 geladen wird — kein zusätzlicher Abruf, kein
+   zusätzliches Budget. Analysten stufen strukturell selten "Verkaufen" ein
+   (Interessenkonflikte mit dem bewerteten Unternehmen); das steht dazu,
+   damit die Verteilung nicht unkommentiert wie ein Signal wirkt. */
+function renderAnalysts() {
+  const o = state.overview;
+  const t = state.sym.type;
+
+  if (!o) {
+    const note = t === "Krypto"
+      ? "Für Kryptowährungen gibt es keine Analystenmeinungen — es gibt keine Analysten, die sie covern."
+      : t === "ETF"
+        ? "Ein Fonds wird nicht von Analysten mit Kaufen/Halten/Verkaufen eingestuft, sondern spiegelt seinen Index."
+        : "Alpha Vantage führt Analystenratings nur für US-Notierungen. Für ein Papier mit Börsensuffix wie diesem fragt Kurslot sie gar nicht erst ab — such dieselbe Firma unter ihrer US-Notierung (BMW etwa als BMWYY).";
+    return `<p class="card-note">${note}</p>`;
+  }
+
+  const rows = [
+    { label: "Stark kaufen", value: o.analystStrongBuy || 0, cls: "g" },
+    { label: "Kaufen", value: o.analystBuy || 0, cls: "g" },
+    { label: "Halten", value: o.analystHold || 0, cls: "y" },
+    { label: "Verkaufen", value: o.analystSell || 0, cls: "r" },
+    { label: "Stark verkaufen", value: o.analystStrongSell || 0, cls: "r" },
+  ];
+  const total = rows.reduce((a, r) => a + r.value, 0);
+
+  if (!total) {
+    return `<p class="card-note">Für dieses Symbol liefert Alpha Vantage keine Analystenratings.</p>`;
+  }
+
+  const bars = rows.filter(r => r.value > 0).map(r => `<div class="row">
+    <span class="dot ${r.cls}"></span>
+    <div class="lab"><b>${esc(r.label)}</b><span>${fmt(r.value / total * 100, 0)} % der Einstufungen</span></div>
+    <div class="num">${r.value}</div>
+  </div>`).join("");
+
+  const target = o.analystTargetPrice;
+  const last = state.series[state.series.length - 1].c;
+  const targetPct = target != null && target > 0 ? (target / last - 1) * 100 : null;
+  const targetNote = targetPct != null
+    ? `<p class="card-note" style="margin-top:14px">Mittleres Kursziel <b>${fmt(target, target < 1 ? 4 : 2)} ${esc(state.sym.currency || "")}</b> —
+       das liegt <b class="${dirClass(targetPct)}">${pct(targetPct)}</b> ${targetPct >= 0 ? "über" : "unter"} dem aktuellen Kurs.</p>`
+    : "";
+
+  return `<p class="card-note"><b>${total}</b> Analyst${total === 1 ? "" : "en"} stufen ${esc(state.sym.symbol)} aktuell ein —
+    fremde Einschätzungen, keine Bewertung von Kurslot.</p>
+    <div class="rows">${bars}</div>
+    ${targetNote}
+    <p class="card-note" style="margin-top:14px">Analysten stufen strukturell selten "Verkaufen" ein — Interessenkonflikte mit
+    dem bewerteten Unternehmen verschieben die Skala nach oben. Das Kursziel ist eine Schätzung, kein Versprechen.</p>`;
 }
 
 function renderFoot() {

@@ -326,6 +326,14 @@ function overviewFrom(raw: unknown) {
     dividendYield: numOrNull(o.DividendYield),
     dividendPerShare: numOrNull(o.DividendPerShare),
     eps: numOrNull(o.EPS),
+    // Baustein 6 (Analystenmeinungen) — dieselbe OVERVIEW-Antwort trägt schon
+    // die Ratingzahlen und das mittlere Kursziel mit, kein zusätzlicher Abruf.
+    analystStrongBuy: numOrNull(o.AnalystRatingStrongBuy),
+    analystBuy: numOrNull(o.AnalystRatingBuy),
+    analystHold: numOrNull(o.AnalystRatingHold),
+    analystSell: numOrNull(o.AnalystRatingSell),
+    analystStrongSell: numOrNull(o.AnalystRatingStrongSell),
+    analystTargetPrice: numOrNull(o.AnalystTargetPrice),
   };
 }
 

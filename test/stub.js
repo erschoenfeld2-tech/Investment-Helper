@@ -31,7 +31,11 @@
       { date: "2025-06-30", reportedOn: "2025-08-01", reported: 2.71, estimated: 2.44, surprise: 11.1 },
       { date: "2025-03-31", reportedOn: "2025-05-08", reported: 2.30, estimated: 2.35, surprise: -2.1 },
     ],
-    overview: { symbol: "BMW.DEX", name: "Bayerische Motoren Werke AG", sector: "Consumer Cyclical", currency: "EUR" },
+    overview: {
+      symbol: "BMW.DEX", name: "Bayerische Motoren Werke AG", sector: "Consumer Cyclical", currency: "EUR",
+      analystStrongBuy: 5, analystBuy: 9, analystHold: 6, analystSell: 1, analystStrongSell: 0,
+      analystTargetPrice: 142.50,
+    },
     movers: {
       gainers: [
         { symbol: "TSTG1", pct: 0.184 }, { symbol: "TSTG2", pct: 0.121 },
