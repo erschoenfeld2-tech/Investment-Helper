@@ -32,6 +32,18 @@
       { date: "2025-03-31", reportedOn: "2025-05-08", reported: 2.30, estimated: 2.35, surprise: -2.1 },
     ],
     overview: { symbol: "BMW.DEX", name: "Bayerische Motoren Werke AG", sector: "Consumer Cyclical", currency: "EUR" },
+    movers: {
+      gainers: [
+        { symbol: "TSTG1", pct: 0.184 }, { symbol: "TSTG2", pct: 0.121 },
+        { symbol: "TSTG3", pct: 0.098 }, { symbol: "TSTG4", pct: 0.076 },
+        { symbol: "TSTG5", pct: 0.061 },
+      ],
+      losers: [
+        { symbol: "TSTL1", pct: -0.093 }, { symbol: "TSTL2", pct: -0.071 },
+        { symbol: "TSTL3", pct: -0.058 }, { symbol: "TSTL4", pct: -0.044 },
+        { symbol: "TSTL5", pct: -0.033 },
+      ],
+    },
     notes: [{
       drivers: [
         { name: "China-Absatz", note: "Ein großer Teil des Konzernabsatzes hängt am chinesischen Markt.", last: "Jun 2026", risk: "hoch" },
@@ -65,6 +77,7 @@
     if (op === "series") return envelope(DB.series);
     if (op === "earnings") return envelope(DB.earnings);
     if (op === "overview") return envelope(DB.overview);
+    if (op === "movers") return envelope(DB.movers);
     return reply({ error: { code: "bad_request", message: "unbekannt" } }, 400);
   };
 })();
