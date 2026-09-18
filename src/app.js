@@ -325,6 +325,64 @@ function analogyChart(el, episodes) {
   </div>`;
 }
 
+/* ---------- Chart 3: Korrekturmuster auf den heutigen Kurs projiziert -----
+   Keine neue Kurslinie in die Zukunft, sondern die Bandbreite tatsächlich
+   gelaufener Korrekturen dieses Papiers auf den heutigen Kurs übertragen —
+   dieselbe Haltung wie der Analogie-Chart oben, nur als Preis statt als
+   Prozentpfad. Nur sinnvoll, wenn sich ein Muster mehrfach wiederholt hat;
+   `correctionStats` liefert deshalb erst ab drei abgeschlossenen Zyklen
+   etwas, sonst wäre eine einzelne Korrektur kein Muster, sondern ein
+   Einzelfall. Ob und wann sich das wiederholt, sagt keiner der beiden
+   Werte — nur wie tief es in der Vergangenheit ging. */
+function correctionStats(episodes) {
+  const done = episodes.filter(e => !e.ongoing);
+  if (done.length < 3) return null;
+  const dd = [...done.map(e => e.drawdown)].sort((a, b) => a - b);
+  const n = dd.length;
+  const median = n % 2 ? dd[(n - 1) / 2] : (dd[n / 2 - 1] + dd[n / 2]) / 2;
+  return { count: n, worst: dd[0], mild: dd[n - 1], median };
+}
+
+function correctionChart(el, opts) {
+  const { price, currency = "", stats } = opts;
+  const projWorst = price * (1 + stats.worst / 100);
+  const projMild = price * (1 + stats.mild / 100);
+  const projMedian = price * (1 + stats.median / 100);
+  const dec = price < 1 ? 4 : price < 20 ? 2 : 1;
+
+  const W = chartW(el), H = 152, P = { t: 18, r: 16, b: 32, l: 16 };
+  const iw = W - P.l - P.r;
+  const lo = Math.min(projWorst, price) * 0.985, hi = Math.max(price, projMild) * 1.015;
+  const X = v => P.l + (v - lo) / (hi - lo || 1) * iw;
+  const yNow = P.t + 30, yScen = P.t + 92;
+
+  const yT = niceTicks(lo, hi, W < 620 ? 3 : 5);
+  const axis = yT.map(v => `<line x1="${X(v).toFixed(1)}" x2="${X(v).toFixed(1)}" y1="${P.t}" y2="${H - P.b}" stroke="var(--rule-2)" stroke-width="1"/>
+    <text x="${X(v).toFixed(1)}" y="${H - P.b + 16}" fill="var(--ink-3)" font-size="10.5" text-anchor="middle" font-family="IBM Plex Mono, monospace">${fmt(v, dec)}</text>`).join("");
+
+  el.innerHTML = `
+  <div class="chartbox">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Heutiger Kurs gegen Bandbreite bisheriger Korrekturen">
+      ${axis}
+      <line x1="${X(price).toFixed(1)}" x2="${X(price).toFixed(1)}" y1="${yNow + 9}" y2="${yScen - 9}" stroke="var(--ink-3)" stroke-width="1" stroke-dasharray="2 3"/>
+      <text x="${P.l}" y="${yNow - 13}" fill="var(--ink-2)" font-size="11.5" font-weight="600" font-family="IBM Plex Mono, monospace">Jetzt</text>
+      <line x1="${P.l}" x2="${P.l + iw}" y1="${yNow}" y2="${yNow}" stroke="var(--rule)" stroke-width="1"/>
+      <circle cx="${X(price).toFixed(1)}" cy="${yNow}" r="5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>
+      <text x="${X(price).toFixed(1)}" y="${yNow + 20}" fill="var(--accent)" font-size="11" text-anchor="middle" font-family="IBM Plex Mono, monospace">${fmt(price, dec)}</text>
+
+      <text x="${P.l}" y="${yScen - 13}" fill="var(--ink-2)" font-size="11.5" font-weight="600" font-family="IBM Plex Mono, monospace">Nach Korrektur in bisheriger Größenordnung</text>
+      <line x1="${P.l}" x2="${P.l + iw}" y1="${yScen}" y2="${yScen}" stroke="var(--rule)" stroke-width="1"/>
+      <rect x="${X(projWorst).toFixed(1)}" y="${yScen - 6}" width="${Math.max(1, X(projMild) - X(projWorst)).toFixed(1)}" height="12" rx="6" fill="var(--bad)" opacity=".22"/>
+      <line x1="${X(projMedian).toFixed(1)}" x2="${X(projMedian).toFixed(1)}" y1="${yScen - 11}" y2="${yScen + 11}" stroke="var(--bad)" stroke-width="2.6"/>
+      <text x="${X(projMedian).toFixed(1)}" y="${yScen + 24}" fill="var(--bad)" font-size="11" text-anchor="middle" font-family="IBM Plex Mono, monospace">${fmt(projMedian, dec)}</text>
+    </svg>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--accent)"></i>aktueller Kurs</span>
+    <span><i style="background:var(--bad);opacity:.45"></i>Bandbreite bisheriger Korrekturen (schwächste bis mildeste), Strich = Median</span>
+  </div>`;
+}
+
 /* ---------------------- kleiner Volatilitäts-Balken ---------------------- */
 function volBars(el, vols) {
   if (!vols.length) { el.innerHTML = ""; return; }

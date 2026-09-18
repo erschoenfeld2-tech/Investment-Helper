@@ -11,16 +11,19 @@ const path = require("path");
     require("fs").existsSync(fixed) ? { executablePath: fixed } : {},
   );
   const cases = [
-    ["ok-light", "?mode=ok", "light", true],
-    ["ok-dark", "?mode=ok", "dark", true],
-    ["empty", "?mode=ok", "light", false],
-    ["offline", "?mode=offline", "light", false],
-    ["budget", "?mode=budget", "light", true],
-    ["stale", "?mode=stale", "light", true],
-    ["nonotes", "?mode=nonotes", "light", true],
-    ["mobile", "?mode=ok", "light", true, { width: 390, height: 844 }],
+    ["ok-light", "?mode=ok", "light", "BMW"],
+    ["ok-dark", "?mode=ok", "dark", "BMW"],
+    ["empty", "?mode=ok", "light", null],
+    ["offline", "?mode=offline", "light", null],
+    ["budget", "?mode=budget", "light", "BMW"],
+    ["stale", "?mode=stale", "light", "BMW"],
+    ["nonotes", "?mode=nonotes", "light", "BMW"],
+    ["mobile", "?mode=ok", "light", "BMW", { width: 390, height: 844 }],
+    // ETF mit ≥ 3 abgeschlossenen Korrekturen — einziger Fall, in dem
+    // Baustein 4 um das Korrekturmuster ergänzt wird.
+    ["etf-correction", "?mode=ok", "light", "MSCI"],
   ];
-  for (const [name, qs, scheme, doSearch, vp] of cases) {
+  for (const [name, qs, scheme, query, vp] of cases) {
     const ctx = await browser.newContext({ colorScheme: scheme, viewport: vp || { width: 1320, height: 1000 }, deviceScaleFactor: 2 });
     const page = await ctx.newPage();
     const errs = [];
@@ -28,8 +31,8 @@ const path = require("path");
     page.on("console", m => { if (m.type() === "error") errs.push("CONSOLE " + m.text()); });
     await page.goto("file://" + path.resolve(__dirname, "page.html") + qs, { waitUntil: "load" });
     await page.waitForTimeout(400);
-    if (doSearch) {
-      await page.fill("#q", "BMW");
+    if (query) {
+      await page.fill("#q", query);
       await page.keyboard.press("Enter");
       await page.waitForTimeout(900);
     }

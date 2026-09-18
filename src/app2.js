@@ -258,6 +258,7 @@ function renderReport() {
   const chgWk = prev ? (last.c / prev.c - 1) * 100 : null;
   const ath = Math.max(...series.map(p => p.c));
   const fromAth = (last.c / ath - 1) * 100;
+  const scenario = sym.type === "ETF" ? correctionStats(episodes) : null;
 
   main.innerHTML = `
   ${staleBanner()}
@@ -313,6 +314,7 @@ function renderReport() {
       <p class="card-note">Jede Linie ist ein tatsächlich gelaufener Verlauf, ab dem jeweiligen Hoch übereinandergelegt. Die blaue Linie ist die laufende Phase. Das ist eine Analogie, keine Prognose — wie oft und wie schnell sich der Kurs früher zurückgeholt hat, sagt nichts darüber, ob er es diesmal tut.</p>
       <div id="chart2"></div>
       ${renderEpisodes()}
+      ${scenario ? renderCorrectionOutlook(scenario, last.c, cur) : ""}
     </section>
 
     <section class="card">
@@ -334,6 +336,7 @@ function renderReport() {
   const sma50 = computeSma(series, 50), sma200 = computeSma(series, 200);
   priceChart(main.querySelector("#chart1"), view, { episodes, currency: cur, sma50, sma200 });
   analogyChart(main.querySelector("#chart2"), episodes);
+  if (scenario) correctionChart(main.querySelector("#chart3"), { price: last.c, currency: cur, stats: scenario });
   const vb = main.querySelector("#volbars");
   if (vb) volBars(vb, vols);
   main.querySelectorAll("[data-r]").forEach(b => b.addEventListener("click", () => {
@@ -439,6 +442,25 @@ function summaryLine(done, med) {
   if (done.length === 1) return `<p class="card-note" style="margin:16px 0 0">Die einzige abgeschlossene Phase brauchte <b>${fmtDuration(done[0].toRecover)}</b> vom Hoch zurück zum Hoch. Eine einzelne Erholung ist kein Muster.</p>`;
   const lo = Math.min(...done.map(x => x.toRecover)), hi = Math.max(...done.map(x => x.toRecover));
   return `<p class="card-note" style="margin:16px 0 0">Von ${done.length} abgeschlossenen Phasen brauchte die mittlere <b>${fmtDuration(med)}</b> vom Hoch zurück zum Hoch, die schnellste ${fmtDuration(lo)}, die längste ${fmtDuration(hi)}.</p>`;
+}
+
+/* ------------- Korrekturmuster: nur breit gestreute Indexfonds -----------
+   Ein Weltindex hat sich nach jeder seiner bisherigen Korrekturen wieder
+   erholt, weil er kein Unternehmen ist, das dauerhaft ausfallen kann —
+   deshalb nur für ETFs, und nur, wenn `correctionStats` mindestens drei
+   abgeschlossene Zyklen findet (siehe app.js). Für Einzelaktien gilt dieses
+   Argument nicht: eine wiederholte Erholung in der Historie ist dort kein
+   Beleg dafür, dass die nächste ebenfalls kommt. */
+function renderCorrectionOutlook(s, price, cur) {
+  const projMedian = price * (1 + s.median / 100);
+  const diff = price - projMedian;
+  return `
+    <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--rule-2)">
+      <h3 style="font-size:15px;margin:0 0 8px">Korrekturmuster auf den heutigen Kurs projiziert</h3>
+      <p class="card-note">Breit gestreute Indexfonds wie dieser haben sich in der Vergangenheit nach jeder Korrektur wieder erholt — das zeigt der Chart oben. Diese Zeile überträgt zusätzlich, wie tief die ${s.count} bisher abgeschlossenen Korrekturen ausgefallen sind, auf den heutigen Kurs: keine neue Kurslinie in die Zukunft, nur die Bandbreite der Vergangenheit auf heute umgerechnet. Ob und wann sich das wiederholt, sagt das nicht.</p>
+      <div id="chart3"></div>
+      <p class="card-note" style="margin-top:12px">Beim Median-Rückgang von <b>${pct(s.median)}</b> läge der Kurs bei <b>${fmt(projMedian, projMedian < 1 ? 4 : 2)} ${esc(cur)}</b> — eine Differenz von <b class="down">-${fmt(diff, diff < 1 && diff > -1 ? 4 : 2)} ${esc(cur)}</b> zum heutigen Stand. Die schwächste der ${s.count} Korrekturen zog ${pct(s.worst)} ab, die mildeste ${pct(s.mild)}.</p>
+    </div>`;
 }
 
 /* -------------------------- Baustein 5: Bewertung -------------------------

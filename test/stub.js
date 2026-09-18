@@ -1,13 +1,14 @@
 // Testdouble: fängt fetch ab und antwortet im Format der Edge Function.
 (function () {
-  function weekly(startYear, n, seed) {
+  function weekly(startYear, n, seed, shocks, baseDrift) {
     let p = 40, r = seed;
     const out = [];
     const d = new Date(startYear, 0, 5);
-    const shocks = [[90, -0.055, 14], [230, -0.075, 10], [430, -0.06, 18], [660, -0.05, 12], [735, -0.07, 9]];
+    shocks = shocks || [[90, -0.055, 14], [230, -0.075, 10], [430, -0.06, 18], [660, -0.05, 12], [735, -0.07, 9]];
+    baseDrift = baseDrift == null ? 0.0052 : baseDrift;
     for (let i = 0; i < n; i++) {
       r = (r * 1103515245 + 12345) % 2147483648;
-      let drift = 0.0052 + ((r / 2147483648) - 0.5) * 0.045;
+      let drift = baseDrift + ((r / 2147483648) - 0.5) * 0.045;
       for (const [at, mag, dec] of shocks) if (i >= at && i < at + 40) drift += mag * Math.exp(-(i - at) / dec);
       p = Math.max(4, p * (1 + drift));
       out.push({ t: d.toISOString().slice(0, 10), c: +p.toFixed(2) });
@@ -21,8 +22,16 @@
     search: [
       { symbol: "BMW.DEX", name: "Bayerische Motoren Werke AG", type: "Aktie", region: "XETRA", currency: "EUR" },
       { symbol: "BMWYY", name: "Bayerische Motoren Werke AG ADR", type: "Aktie", region: "United States", currency: "USD" },
+      { symbol: "URTH", name: "iShares MSCI World ETF", type: "ETF", region: "United States", currency: "USD" },
     ],
-    series: weekly(2011, 760, 7),
+    // fünf vollständig gelaufene Korrekturen ≥ 18 % über 26 Jahre — Fixture
+    // für Baustein 4b (Korrekturmuster), das nur bei ETFs mit mindestens
+    // drei abgeschlossenen Zyklen überhaupt erscheint.
+    seriesFor: {
+      "BMW.DEX": weekly(2011, 760, 7),
+      "BMWYY": weekly(2011, 760, 7),
+      "URTH": weekly(2000, 1370, 3, [[100, -0.05, 12], [370, -0.06, 14], [660, -0.055, 12], [950, -0.06, 13], [1230, -0.05, 10]], 0.0052),
+    },
     earnings: [
       { date: "2026-06-30", reportedOn: "2026-08-06", reported: 0.94, estimated: 1.61, surprise: -41.6 },
       { date: "2026-03-31", reportedOn: "2026-05-07", reported: 2.02, estimated: 2.14, surprise: -5.6 },
@@ -31,10 +40,16 @@
       { date: "2025-06-30", reportedOn: "2025-08-01", reported: 2.71, estimated: 2.44, surprise: 11.1 },
       { date: "2025-03-31", reportedOn: "2025-05-08", reported: 2.30, estimated: 2.35, surprise: -2.1 },
     ],
-    overview: {
-      symbol: "BMW.DEX", name: "Bayerische Motoren Werke AG", sector: "Consumer Cyclical", currency: "EUR",
-      analystStrongBuy: 5, analystBuy: 9, analystHold: 6, analystSell: 1, analystStrongSell: 0,
-      analystTargetPrice: 142.50,
+    // ETFs liefern bei Alpha Vantage ein leeres {} (kein KGV, keine Ratings) —
+    // das bildet die Fixture für URTH nach, statt versehentlich BMWs Werte
+    // unter einem Fondssymbol anzuzeigen.
+    overviewFor: {
+      "BMW.DEX": {
+        symbol: "BMW.DEX", name: "Bayerische Motoren Werke AG", sector: "Consumer Cyclical", currency: "EUR",
+        analystStrongBuy: 5, analystBuy: 9, analystHold: 6, analystSell: 1, analystStrongSell: 0,
+        analystTargetPrice: 142.50,
+      },
+      "URTH": {},
     },
     movers: {
       gainers: [
@@ -77,10 +92,15 @@
     if (mode === "nokey") return reply({ error: { code: "no_key", message: "kein Schlüssel" }, budget }, 503);
 
     const envelope = (data) => reply({ data, fetchedAt: new Date().toISOString(), stale: mode === "stale", budget });
-    if (op === "search") return envelope(DB.search);
-    if (op === "series") return envelope(DB.series);
+    const params = new URL(url).searchParams;
+    if (op === "search") {
+      const q = (params.get("q") || "").toLowerCase();
+      const hits = DB.search.filter(r => r.symbol.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+      return envelope(hits.length ? hits : DB.search);
+    }
+    if (op === "series") return envelope(DB.seriesFor[params.get("symbol")] || DB.seriesFor["BMW.DEX"]);
     if (op === "earnings") return envelope(DB.earnings);
-    if (op === "overview") return envelope(DB.overview);
+    if (op === "overview") return envelope(DB.overviewFor[params.get("symbol")] ?? DB.overviewFor["BMW.DEX"]);
     if (op === "movers") return envelope(DB.movers);
     return reply({ error: { code: "bad_request", message: "unbekannt" } }, 400);
   };

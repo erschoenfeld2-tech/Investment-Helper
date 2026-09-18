@@ -141,6 +141,32 @@ Beide Werte sind im Chart bzw. in Baustein 5 ausdrücklich als „Kontext, kein 
 beschriftet. Das ist keine Förmlichkeit: Kurslots Grundprinzip ist, nichts zu zeigen,
 das wie eine Prognose aussieht, und ein SMA-Crossover wird landläufig genau so gelesen.
 
+## Korrekturmuster: warum nur für ETFs mit mindestens drei Zyklen
+
+`correctionStats` in `src/app.js` projiziert die Bandbreite bisheriger Korrekturen
+(schwächster, mildester, Median-Rückgang) auf den aktuellen Kurs — als Preis statt als
+Prozentpfad, damit die Differenz zum heutigen Stand direkt in der Kurswährung ablesbar
+ist, wie sie in Baustein 4 sonst nicht sichtbar wäre.
+
+Zwei Bedingungen müssen erfüllt sein, sonst erscheint das Feld gar nicht:
+
+1. **`sym.type === "ETF"`.** Ein breit gestreuter Indexfonds tauscht ausgefallene
+   Bestandteile laufend aus und kann sich deshalb per Konstruktion immer wieder erholen —
+   ein einzelnes Unternehmen kann dauerhaft fallen oder insolvent werden. Eine
+   wiederholte Erholung in dessen Historie wäre kein Beleg dafür, dass die nächste auch
+   kommt, und genau das würde diese Projektion nahelegen. Deshalb gilt sie ausdrücklich
+   nicht für Aktien.
+2. **Mindestens drei abgeschlossene Korrekturzyklen** in der geladenen Historie
+   (`correctionStats` gibt sonst `null` zurück). Eine oder zwei Korrekturen sind ein
+   Einzelfall, kein Muster — dieselbe Schwelle, mit der schon `summaryLine` in
+   `src/app2.js` bei einer einzigen abgeschlossenen Phase warnt, dass das kein Muster
+   ergibt.
+
+Die Projektion sagt nichts über den Zeitpunkt einer möglichen nächsten Korrektur — nur,
+wie tief die Vergangenheit auf den heutigen Kurs umgerechnet ginge. Das ist dieselbe
+Zurückhaltung wie beim Analogie-Chart: Muster aus echten Daten zeigen, ohne eine neue
+Linie in die Zukunft zu erfinden.
+
 ## Grenzen, die bewusst so stehen
 
 * **Wochenschlusskurse, nicht Tageskurse.** Für Schockphasen über Jahre ist das die

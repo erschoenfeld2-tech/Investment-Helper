@@ -23,6 +23,15 @@ Baustein 4 ist die Antwort auf die Frage „wie könnte es weitergehen": **keine
 Zukunftslinie**, sondern die tatsächlich gelaufenen Verläufe früherer Schocks, gegen die
 laufende Phase gelegt. Eine Analogie, ausdrücklich keine Prognose.
 
+Bei ETFs mit mindestens drei abgeschlossenen Korrekturzyklen ergänzt Baustein 4 zusätzlich
+ein Korrekturmuster: die Bandbreite der bisherigen Rückgänge (schwächster, mildester,
+Median), auf den heutigen Kurs projiziert — als Preis, damit die Differenz zum aktuellen
+Stand direkt ablesbar ist. Auch das ist die Vergangenheit auf heute übertragen, keine
+Vorhersage, ob oder wann eine weitere Korrektur kommt. Einzelaktien zeigen dieses Feld
+bewusst nicht: Ein Weltindex erholt sich per Konstruktion (er tauscht ausgefallene
+Bestandteile aus), eine einzelne Aktie kann dauerhaft fallen — eine wiederholte Erholung
+in der Historie ist dort kein Beleg für die nächste.
+
 Baustein 5 ordnet ein, wie der Markt das Unternehmen *aktuell* bewertet — ebenfalls keine
 Kaufempfehlung und keine Prognose, nur eingeordnete Fakten. SMA und RSI sind bewusst als
 Kontext beschriftet ("Kontext, kein Signal"): sie beschreiben die Vergangenheit des
