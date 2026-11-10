@@ -78,6 +78,13 @@ class AvError extends Error {
   constructor(public code: string, message: string) { super(message); }
 }
 
+/** Alpha Vantage antwortet bei unbekannten Symbolen (z. B. Indizes wie NDX)
+ *  mit HTTP 200 und `{}`. Das ist keine Kursreihe und darf weder gecacht
+ *  noch als Abruf gezählt werden. */
+function isEmptyPayload(v: unknown): boolean {
+  return !v || typeof v !== "object" || Object.keys(v as object).length === 0;
+}
+
 /* ----------------------------- Schlüssel -------------------------------- */
 const keyCache: Record<string, string | null> = {};
 async function providerKey(secretName: string, envName: string): Promise<string | null> {
@@ -155,6 +162,7 @@ async function callAv(params: Record<string, string>): Promise<unknown> {
     const limited = /rate limit|frequency|premium|thank you for using/i.test(note);
     throw new AvError(limited ? "rate_limited" : "api", note);
   }
+  if (isEmptyPayload(body)) throw new AvError("notfound", "Alpha Vantage hat zu diesem Symbol keine Daten.");
   return body;
 }
 
@@ -193,7 +201,8 @@ async function fetchOrCache(
   hasKey: () => Promise<string | null>,
   fetchRaw: () => Promise<unknown>,
 ) {
-  const hit = await readCache(kind, key);
+  const cached = await readCache(kind, key);
+  const hit = cached && !isEmptyPayload(cached.payload) ? cached : null;
   const age = hit ? Date.now() - new Date(hit.fetched_at).getTime() : Infinity;
   if (hit && age < (TTL[kind] ?? 864e5)) {
     return { payload: hit.payload, fetchedAt: hit.fetched_at, stale: false };
@@ -416,6 +425,7 @@ Deno.serve(async (req) => {
     const e = err as AvError;
     const status = e.code === "budget_exhausted" || e.code === "rate_limited" ? 429
       : e.code === "no_key" ? 503
+      : e.code === "notfound" ? 404
       : e.code === "db" ? 500 : 502;
     return fail(e.code ?? "unknown", e.message ?? "Unbekannter Fehler", status, { budget: await usageAll() });
   }
